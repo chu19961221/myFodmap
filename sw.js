@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v14-logoutclear';
+const CACHE_NAME = 'fodmap-app-v15-autoconnect';
 const ASSETS = [
     './',
     './index.html',

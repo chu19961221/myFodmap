@@ -148,25 +148,7 @@ const app = {
             };
         }
 
-        document.getElementById('saveSettingsBtn').onclick = () => {
-            const clientId = document.getElementById('clientIdInput').value.trim();
-            const apiKey = document.getElementById('apiKeyInput').value.trim();
-            if (clientId && apiKey) {
-                localStorage.setItem('g_client_id', clientId);
-                localStorage.setItem('g_api_key', apiKey);
 
-                const blocker = document.getElementById('loginBlocker');
-                if (blocker) blocker.style.display = 'flex';
-
-                const panel = document.getElementById('settingsPanel');
-                panel.style.zIndex = '';
-                panel.style.position = '';
-                panel.classList.add('hidden');
-
-                this.showToast("Settings Saved. Connecting...");
-                this.initDrive();
-            }
-        };
 
         // Logout
         document.getElementById('logoutBtn').onclick = () => {
@@ -182,9 +164,14 @@ const app = {
             }
         };
 
-        // Listen for drive connection
+        // Listen for drive connection (triggered after successful OAuth)
         window.addEventListener('drive-connected', () => {
             this.updateAuthStatus(true);
+
+            // Hide login blocker
+            const blocker = document.getElementById('loginBlocker');
+            if (blocker) blocker.classList.add('hidden');
+
             this.syncFromDrive();
         });
 
