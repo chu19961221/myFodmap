@@ -1,0 +1,25 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#c084fc;stop-opacity:1" />
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="15" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Background Squircle -->
+  <rect x="32" y="32" width="448" height="448" rx="128" ry="128" fill="url(#grad)" filter="url(#shadow)" />
+  
+  <!-- Content: Stylized Leaf / Stomach Health Symbol -->
+  <!-- A minimal leaf shape implying natural/healthy -->
+  <path d="M256 120 C 310 120, 390 160, 390 256 C 390 350, 310 392, 256 392 C 202 392, 122 350, 122 256 C 122 160, 202 120, 256 120 Z" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Internal Check indicating "Good" -->
+  <path d="M220 256 L 250 286 L 310 216" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Small stalk -->
+  <path d="M256 120 L 256 80" fill="none" stroke="white" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>
