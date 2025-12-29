@@ -94,12 +94,17 @@
                 <input type="text" id="apiKeyInput" class="form-input" placeholder="e.g. AIza...">
             </div>
             <hr style="border-color: var(--card-border); margin: 1.5rem 0;">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
                 <span style="font-size: 0.8rem; color: var(--text-muted);">Version: 2.0</span>
-                <button id="logoutBtn" class="btn"
-                    style="color: var(--danger-color); border-color: var(--danger-color); font-size: 0.875rem;">
-                    Logout
-                </button>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="updateBtn" class="btn" style="font-size: 0.875rem;">
+                        🔄 Update
+                    </button>
+                    <button id="logoutBtn" class="btn"
+                        style="color: var(--danger-color); border-color: var(--danger-color); font-size: 0.875rem;">
+                        Logout
+                    </button>
+                </div>
             </div>
         </div>
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v15-autoconnect';
+const CACHE_NAME = 'fodmap-app-v16-update';
 const ASSETS = [
     './',
     './index.html',

@@ -148,7 +148,17 @@ const app = {
             };
         }
 
+        // Update from Drive
+        document.getElementById('updateBtn').onclick = async () => {
+            if (!DriveService.isConnected) {
+                this.showToast("Not connected to Google Drive", "error");
+                return;
+            }
 
+            this.showToast("Updating from Google Drive...");
+            await this.syncFromDrive();
+            document.getElementById('settingsPanel').classList.add('hidden');
+        };
 
         // Logout
         document.getElementById('logoutBtn').onclick = () => {
