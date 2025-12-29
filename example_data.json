@@ -1,0 +1,38 @@
+{
+    "food_category": [
+        {
+            "category_name": "主食",
+            "food": [
+                {
+                    "food_name": "白飯",
+                    "food_count": 10,
+                    "food_no_lactose_count": 9,
+                    "food_star": 4.5
+                },
+                {
+                    "food_name": "麵包",
+                    "food_count": 5,
+                    "food_no_lactose_count": 2,
+                    "food_star": 4.0
+                }
+            ]
+        },
+        {
+            "category_name": "蔬菜",
+            "food": [
+                {
+                    "food_name": "菠菜",
+                    "food_count": 7,
+                    "food_no_lactose_count": 2,
+                    "food_star": 2.857
+                },
+                {
+                    "food_name": "番茄",
+                    "food_count": 0,
+                    "food_no_lactose_count": 0,
+                    "food_star": 0.0
+                }
+            ]
+        }
+    ]
+}
