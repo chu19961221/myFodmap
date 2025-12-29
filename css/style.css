@@ -131,6 +131,24 @@ h1 {
     background-color: rgba(255, 255, 255, 0.05);
 }
 
+.category-header-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    cursor: pointer;
+}
+
+.category-more-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.category-menu-dropdown {
+    right: 0;
+    top: 100%;
+}
+
 .category-title {
     font-size: 1.25rem;
     color: var(--text-color);

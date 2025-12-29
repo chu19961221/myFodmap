@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v10-autologin';
+const CACHE_NAME = 'fodmap-app-v11-catmenu';
 const ASSETS = [
     './',
     './index.html',

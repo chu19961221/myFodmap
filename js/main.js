@@ -341,6 +341,63 @@ const app = {
         setTimeout(() => document.body.addEventListener('click', closeMenu), 0);
     },
 
+    // Category Menu Logic
+    toggleCategoryMenu(categoryName, event) {
+        event.stopPropagation();
+        const existing = document.getElementById(`cat-menu-${categoryName}`);
+
+        if (existing && existing.classList.contains('active')) {
+            existing.classList.remove('active');
+            return;
+        }
+
+        document.querySelectorAll('.menu-dropdown').forEach(el => el.classList.remove('active'));
+
+        if (existing) {
+            existing.classList.add('active');
+        }
+
+        const closeMenu = (e) => {
+            if (!e.target.closest(`#cat-menu-${categoryName}`) && !e.target.closest(`.more-btn`)) {
+                if (existing) existing.classList.remove('active');
+                document.body.removeEventListener('click', closeMenu);
+            }
+        };
+        setTimeout(() => document.body.addEventListener('click', closeMenu), 0);
+    },
+
+    openEditCategoryModal(categoryName) {
+        document.querySelectorAll('.menu-dropdown').forEach(el => el.classList.remove('active'));
+        const newName = prompt("Enter new name for category:", categoryName);
+        if (newName !== null && newName.trim() !== '') {
+            const result = DataStore.renameCategory(categoryName, newName.trim());
+            if (result.success) {
+                this.showToast("Category renamed");
+            } else {
+                this.showToast(result.message, "error");
+            }
+        }
+    },
+
+    deleteCategory(categoryName) {
+        document.querySelectorAll('.menu-dropdown').forEach(el => el.classList.remove('active'));
+        const category = DataStore.state.food_category.find(c => c.category_name === categoryName);
+        const foodCount = category ? category.food.length : 0;
+
+        const msg = foodCount > 0
+            ? `Delete category "${categoryName}" and its ${foodCount} food item(s)? This cannot be undone.`
+            : `Delete empty category "${categoryName}"?`;
+
+        if (confirm(msg)) {
+            const result = DataStore.deleteCategory(categoryName);
+            if (result.success) {
+                this.showToast("Category deleted");
+            } else {
+                this.showToast(result.message, "error");
+            }
+        }
+    },
+
     openEditFoodModal(foodName) {
         this.closeModals();
         // Determine values
@@ -412,14 +469,28 @@ const app = {
 
             const header = document.createElement('div');
             header.className = 'category-header';
-            // Click to toggle
-            header.onclick = () => this.toggleCategory(cat.category_name);
+            header.style.position = 'relative';
+
+            const safeCatName = this.escapeHtml(cat.category_name);
 
             header.innerHTML = `
-                <h2 class="category-title">${this.escapeHtml(cat.category_name)}</h2>
-                <svg class="category-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
+                <div class="category-header-left" onclick="app.toggleCategory('${safeCatName}')">
+                    <h2 class="category-title">${safeCatName}</h2>
+                    <svg class="category-toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                </div>
+                <button class="btn-icon more-btn category-more-btn" onclick="event.stopPropagation(); app.toggleCategoryMenu('${safeCatName}', event)">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                </button>
+                <div id="cat-menu-${safeCatName}" class="menu-dropdown category-menu-dropdown">
+                    <button class="menu-item" onclick="app.openEditCategoryModal('${safeCatName}')">
+                        ✏️ Rename
+                    </button>
+                    <button class="menu-item" style="color: var(--danger-color);" onclick="app.deleteCategory('${safeCatName}')">
+                        🗑️ Delete Category
+                    </button>
+                </div>
             `;
             section.appendChild(header);
 

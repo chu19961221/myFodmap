@@ -143,5 +143,30 @@ export const DataStore = {
     // Helper to get all categories for dropdown
     getCategories() {
         return this.state.food_category.map(c => c.category_name);
+    },
+
+    renameCategory(oldName, newName) {
+        if (!newName.trim()) return { success: false, message: "Name cannot be empty" };
+        if (oldName === newName) return { success: true };
+
+        // Check if new name already exists
+        const exists = this.state.food_category.some(c => c.category_name === newName);
+        if (exists) return { success: false, message: "Category with this name already exists" };
+
+        const category = this.state.food_category.find(c => c.category_name === oldName);
+        if (!category) return { success: false, message: "Category not found" };
+
+        category.category_name = newName;
+        this.save();
+        return { success: true };
+    },
+
+    deleteCategory(categoryName) {
+        const index = this.state.food_category.findIndex(c => c.category_name === categoryName);
+        if (index === -1) return { success: false, message: "Category not found" };
+
+        this.state.food_category.splice(index, 1);
+        this.save();
+        return { success: true };
     }
 };
