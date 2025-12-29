@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v8-logindirect';
+const CACHE_NAME = 'fodmap-app-v9-hiddenfix';
 const ASSETS = [
     './',
     './index.html',

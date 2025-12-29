@@ -411,6 +411,10 @@ h1 {
     text-align: center;
 }
 
+.hidden {
+    display: none !important;
+}
+
 .login-blocker.hidden {
     display: none;
 }
