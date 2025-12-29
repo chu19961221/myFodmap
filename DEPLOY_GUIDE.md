@@ -26,26 +26,36 @@
    `https://<您的帳號>.github.io/my-fodmap-tracker/`
 
 ## 第三步：設定 Google Cloud Console (關鍵步驟)
-為了讓 Google Drive 登入功能在 GitHub Pages 上運作，您必須修改 Google API 的授權設定：
+為了讓 Google Drive 登入功能在 GitHub Pages (或您的本機環境) 上運作，您必須取得正確的憑證並設定授權網址。
+
+### 1. 取得 Client ID 與 API Key (重要)
+這款 APP 不需要「密碼 (Client Secret)」，而是需要 **API Key**。
 
 1. 前往 [Google Cloud Console](https://console.cloud.google.com/)。
-2. 進入您的專案，選擇 **APIs & Services** > **Credentials** (憑證)。
-3. 點擊您原本建立的 **OAuth 2.0 Client ID**。
-4. 在 **Authorized JavaScript origins** (已授權的 JavaScript 來源) 區塊：
-   - 點擊 **Add URI**。
-   - 貼上您的 GitHub Pages 網址 (只保留網域部分)，例如：
-     `https://<您的帳號>.github.io`
-   - *注意：結尾不要有斜線 `/`。*
-5. 按下 **Save** (儲存)。
+2. 進入 **APIs & Services** > **Credentials** (憑證)。
+3. **複製 Client ID**: 找到 OAuth 2.0 Client IDs 區塊，複製那個以 `.apps.googleusercontent.com` 結尾的字串。
+4. **建立 API Key**:
+   - 點擊上方 **+ CREATE CREDENTIALS** > **API Key**。
+   - 複製產生出來的那串亂碼 Key。
+   - (建議) 點擊編輯該 API Key，在 "API restrictions" 中選擇 **Google Drive API**，增加安全性。
 
-## 第四步：使用者如何安裝 (下載)
+### 2. 設定授權網址 (Authorized JavaScript origins)
+1. 回到 OAuth 2.0 Client ID 的編輯頁面。
+2. 在 **Authorized JavaScript origins** (已授權的 JavaScript 來源) 區塊：
+   - **本機測試用**: 加入 `http://localhost:8000` (或您使用的 port)。
+   - **GitHub Pages用**: 加入 `https://<您的帳號>.github.io` (注意結尾不可有斜線)。
+3. 按下 **Save** (儲存)。
+
+## 第四步：在 APP 中連接雲端
+1. 打開您的 APP (不管是在 `localhost` 還是 GitHub Pages)。
+2. 點擊右上角的 **齒輪 (設定) 圖示**。
+3. 把剛剛取得的 **Client ID** 和 **API Key** 分別填入對應欄位。
+4. 按下 **Save & Connect**。
+5. 接著會彈出 Google 登入視窗，授權後狀態會變為綠燈，即完成串接！
+
+## 第五步：使用者如何安裝 (下載)
 當您的用戶 (或您自己) 使用手機瀏覽器 (Chrome/Safari) 開啟該網址時：
-
 - **Android (Chrome)**: 瀏覽器下方通常會自動彈出「新增 My FODMAP 到主畫面」的提示，或是點擊選單中的「安裝應用程式」。
 - **iOS (Safari)**: 點擊下方的「分享」按鈕 (往上的箭頭圖示)，往下滑找到並點擊「加入主畫面 (Add to Home Screen)」。
 
 這樣就會像一個原生 App 一樣出現在手機桌面上，並且支援離線開啟！
-
-## 注意事項
-- **更新延遲**: 當您更新程式碼到 GitHub 後，GitHub Pages 可能需要幾分鐘才會更新。
-- **快取**: 因為我們有使用 Service Worker (`sw.js`) 做離線功能，有時候瀏覽器會抓到舊的版本。如果更新後沒看到變動，請嘗試清除瀏覽器快取重新整理。
