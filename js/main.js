@@ -20,17 +20,93 @@ const app = {
         this.bindEvents();
     },
 
+    async initDrive() {
+        // Show loading state in blocker
+        const blocker = document.getElementById('loginBlocker');
+        const loading = document.getElementById('loginLoading');
+        const actions = document.getElementById('loginActions');
+
+        if (loading && actions && blocker) {
+            loading.style.display = 'block';
+            actions.style.display = 'none';
+        }
+
+        // Init usually restores token from local storage now
+        // This might fail if gapi not loaded yet, DriveService.init waits for it.
+        const connected = await DriveService.init();
+
+        if (DriveService.isConnected) {
+            this.updateAuthStatus(true);
+            // Hide blocker immediately
+            if (blocker) blocker.classList.add('hidden');
+
+            this.syncFromDrive();
+
+            // Background: refresh token
+            if (DriveService.tokenClient) {
+                try {
+                    DriveService.tokenClient.requestAccessToken({ prompt: '' });
+                } catch (e) { console.log("Silent refresh skipped"); }
+            }
+        } else {
+            this.updateAuthStatus(false);
+            // Show Prompt in Blocker
+            if (loading && actions && blocker) {
+                loading.style.display = 'none';
+                actions.style.display = 'block';
+                blocker.classList.remove('hidden');
+            }
+        }
+
+        // Listen for disconnects
+        window.addEventListener('drive-disconnected', () => {
+            this.updateAuthStatus(false);
+            // Re-show blocker
+            if (blocker && loading && actions) {
+                blocker.classList.remove('hidden');
+                loading.style.display = 'none';
+                actions.style.display = 'block';
+            }
+            this.showToast("Session Expired", "error");
+        });
+    },
+
     bindEvents() {
         // FAB
         document.getElementById('fabBtn').onclick = () => {
             document.getElementById('choiceModal').classList.add('active');
         };
 
-        // Settings
+        // Settings (In App)
         document.getElementById('settingsBtn').onclick = () => {
             document.getElementById('settingsPanel').classList.toggle('hidden');
             this.loadSettingsValues();
         };
+
+        // Login Blocker Buttons
+        const mainConnectBtn = document.getElementById('mainConnectBtn');
+        if (mainConnectBtn) {
+            mainConnectBtn.onclick = () => {
+                const clientId = localStorage.getItem('g_client_id');
+                const apiKey = localStorage.getItem('g_api_key');
+
+                if (!clientId || !apiKey) {
+                    // Force open settings above blocker
+                    const panel = document.getElementById('settingsPanel');
+                    panel.classList.remove('hidden');
+                    panel.style.zIndex = '10000';
+                    panel.style.position = 'relative';
+                    this.loadSettingsValues();
+
+                    const blocker = document.getElementById('loginBlocker');
+                    if (blocker) blocker.style.display = 'none';
+
+                    this.showToast("Please configure API Keys first", "error");
+                    return;
+                }
+                DriveService.signIn();
+            };
+        }
 
         document.getElementById('saveSettingsBtn').onclick = () => {
             const clientId = document.getElementById('clientIdInput').value.trim();
@@ -38,8 +114,17 @@ const app = {
             if (clientId && apiKey) {
                 localStorage.setItem('g_client_id', clientId);
                 localStorage.setItem('g_api_key', apiKey);
+
+                const blocker = document.getElementById('loginBlocker');
+                if (blocker) blocker.style.display = 'flex';
+
+                const panel = document.getElementById('settingsPanel');
+                panel.style.zIndex = '';
+                panel.style.position = '';
+                panel.classList.add('hidden');
+
                 this.showToast("Settings Saved. Connecting...");
-                this.initDrive(); // Re-init
+                this.initDrive();
             }
         };
 
@@ -70,25 +155,21 @@ const app = {
         window.addEventListener('data-sync-needed', () => {
             this.syncToDrive();
         });
+
+        // Listen for detailed errors from DriveService
+        window.addEventListener('toast', (e) => {
+            if (e.detail) {
+                this.showToast(e.detail.message, e.detail.type || 'success');
+            }
+        });
     },
+
 
     loadSettingsValues() {
         document.getElementById('clientIdInput').value = localStorage.getItem('g_client_id') || '';
         document.getElementById('apiKeyInput').value = localStorage.getItem('g_api_key') || '';
     },
 
-    async initDrive() {
-        const connected = await DriveService.init();
-        if (connected) {
-            // Try silent sign-in or check status
-            // DriveService.signIn(); // This might trigger popup, usually we wait for user action
-            // But requirement says "Auto import... on open". This implies we are already authorized or silent auth.
-            // We will attempt immediate sign in if token exists? GIS handles this.
-            DriveService.signIn();
-        } else {
-            this.updateAuthStatus(false);
-        }
-    },
 
     updateAuthStatus(isConnected) {
         const text = document.getElementById('statusText');

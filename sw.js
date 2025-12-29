@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v3-cssfix';
+const CACHE_NAME = 'fodmap-app-v7-finalfix';
 const ASSETS = [
     './',
     './index.html',

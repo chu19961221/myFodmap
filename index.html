@@ -18,6 +18,35 @@
 
 <body>
 
+    <!-- Login/Auth Blocker -->
+    <div id="loginBlocker" class="login-blocker">
+        <div class="login-card">
+            <div class="login-icon">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                    <polyline points="10 17 15 12 10 7" />
+                    <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+            </div>
+            <h2 style="margin-bottom: 0.5rem;">Welcome</h2>
+            <p style="color: var(--text-muted); margin-bottom: 2rem;">
+                Please connect your Google Drive to start tracking your FODMAP journey using your own cloud data.
+            </p>
+
+            <div id="loginLoading" style="display:none; color: var(--text-muted); margin-bottom: 1rem;">
+                Checking connection...
+            </div>
+
+            <div id="loginActions">
+                <button id="mainConnectBtn" class="btn btn-primary"
+                    style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem;">
+                    Connect Google Drive
+                </button>
+            </div>
+        </div>
+    </div>
+
     <header class="app-header">
         <div>
             <h1>My FODMAP</h1>
