@@ -398,6 +398,19 @@ const app = {
         }
     },
 
+    renameFood(foodName) {
+        document.querySelectorAll('.menu-dropdown').forEach(el => el.classList.remove('active'));
+        const newName = prompt("Enter new name for food:", foodName);
+        if (newName !== null && newName.trim() !== '') {
+            const result = DataStore.renameFood(foodName, newName.trim());
+            if (result.success) {
+                this.showToast("Food renamed");
+            } else {
+                this.showToast(result.message, "error");
+            }
+        }
+    },
+
     openEditFoodModal(foodName) {
         this.closeModals();
         // Determine values
@@ -527,6 +540,9 @@ const app = {
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
             </button>
             <div id="menu-${safeName}" class="menu-dropdown">
+                <button class="menu-item" onclick="app.renameFood('${safeName}')">
+                    ✏️ Rename
+                </button>
                 <button class="menu-item" onclick="app.openEditFoodModal('${safeName}')">
                     ✏️ Edit Data
                 </button>

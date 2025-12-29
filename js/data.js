@@ -140,6 +140,30 @@ export const DataStore = {
         return found;
     },
 
+    renameFood(oldName, newName) {
+        if (!newName.trim()) return { success: false, message: "Name cannot be empty" };
+        if (oldName === newName) return { success: true };
+
+        // Check if new name already exists in any category
+        for (const cat of this.state.food_category) {
+            if (cat.food.some(f => f.food_name === newName)) {
+                return { success: false, message: `Food '${newName}' already exists` };
+            }
+        }
+
+        // Find and rename the food
+        for (const cat of this.state.food_category) {
+            const food = cat.food.find(f => f.food_name === oldName);
+            if (food) {
+                food.food_name = newName;
+                this.save();
+                return { success: true };
+            }
+        }
+
+        return { success: false, message: "Food not found" };
+    },
+
     // Helper to get all categories for dropdown
     getCategories() {
         return this.state.food_category.map(c => c.category_name);
