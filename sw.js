@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v16-update';
+const CACHE_NAME = 'fodmap-app-v17-persistlogin';
 const ASSETS = [
     './',
     './index.html',

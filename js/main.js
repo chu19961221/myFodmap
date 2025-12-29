@@ -40,13 +40,11 @@ const app = {
             // Hide blocker immediately
             if (blocker) blocker.classList.add('hidden');
 
-            this.syncFromDrive();
-
-            // Background: refresh token
-            if (DriveService.tokenClient) {
-                try {
-                    DriveService.tokenClient.requestAccessToken({ prompt: '' });
-                } catch (e) { console.log("Silent refresh skipped"); }
+            // Try to sync - if token is invalid, this will fail
+            const success = await this.syncFromDrive();
+            if (!success) {
+                // Token might be expired, show login blocker
+                this.handleTokenExpired();
             }
         } else {
             this.updateAuthStatus(false);
@@ -218,14 +216,48 @@ const app = {
     },
 
     async syncFromDrive() {
-        const cloudData = await DriveService.downloadFile();
-        if (cloudData) {
-            if (typeof cloudData === 'string') {
-                DataStore.importJSON(cloudData);
-            } else {
-                DataStore.importJSON(JSON.stringify(cloudData));
+        try {
+            const cloudData = await DriveService.downloadFile();
+            if (cloudData) {
+                if (typeof cloudData === 'string') {
+                    DataStore.importJSON(cloudData);
+                } else {
+                    DataStore.importJSON(JSON.stringify(cloudData));
+                }
+                this.showToast("Data Imported from Cloud");
+                return true;
             }
-            this.showToast("Data Imported from Cloud");
+            // No data but no error - might be first time use (no file yet)
+            return true;
+        } catch (err) {
+            console.error("Sync from Drive failed:", err);
+            return false;
+        }
+    },
+
+    handleTokenExpired() {
+        // Clear invalid token
+        localStorage.removeItem('g_access_token');
+        DriveService.isConnected = false;
+
+        this.updateAuthStatus(false);
+        this.showToast("Session expired. Please login again.", "error");
+
+        // Show login blocker
+        const blocker = document.getElementById('loginBlocker');
+        const loading = document.getElementById('loginLoading');
+        const actions = document.getElementById('loginActions');
+
+        if (blocker && loading && actions) {
+            blocker.classList.remove('hidden');
+            loading.style.display = 'none';
+            actions.style.display = 'block';
+
+            // Prefill
+            const loginClientId = document.getElementById('loginClientId');
+            const loginApiKey = document.getElementById('loginApiKey');
+            if (loginClientId) loginClientId.value = localStorage.getItem('g_client_id') || '';
+            if (loginApiKey) loginApiKey.value = localStorage.getItem('g_api_key') || '';
         }
     },
 

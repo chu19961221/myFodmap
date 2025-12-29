@@ -125,8 +125,7 @@ export const DriveService = {
             if (err.status === 401 || err.status === 403) {
                 this.isConnected = false;
                 localStorage.removeItem('g_access_token');
-                // Maybe trigger re-login logic or show status
-                window.dispatchEvent(new CustomEvent('drive-disconnected'));
+                throw new Error('AUTH_EXPIRED');
             }
         }
         return null;
@@ -134,7 +133,7 @@ export const DriveService = {
 
     async downloadFile() {
         if (!this.fileId) await this.findFile();
-        if (!this.fileId) return null;
+        if (!this.fileId) return null; // No file exists yet, not an error
 
         try {
             const response = await gapi.client.drive.files.get({
@@ -144,6 +143,10 @@ export const DriveService = {
             return response.body || response.result;
         } catch (err) {
             console.error("Download Error", err);
+            // Check if it's an auth error (401 or 403)
+            if (err.status === 401 || err.status === 403) {
+                throw new Error('AUTH_EXPIRED');
+            }
             return null;
         }
     },
