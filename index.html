@@ -38,10 +38,19 @@
                 Checking connection...
             </div>
 
-            <div id="loginActions">
-                <button id="mainConnectBtn" class="btn btn-primary"
-                    style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem;">
-                    Connect Google Drive
+            <div id="loginActions" style="text-align: left;">
+                <div class="form-group">
+                    <label class="form-label">Client ID</label>
+                    <input type="text" id="loginClientId" class="form-input"
+                        placeholder="...apps.googleusercontent.com">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">API Key</label>
+                    <input type="text" id="loginApiKey" class="form-input" placeholder="AIza...">
+                </div>
+                <button id="loginConnectBtn" class="btn btn-primary"
+                    style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem; margin-top: 1rem;">
+                    Connect & Login
                 </button>
             </div>
         </div>

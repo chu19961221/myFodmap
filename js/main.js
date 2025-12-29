@@ -55,6 +55,12 @@ const app = {
                 loading.style.display = 'none';
                 actions.style.display = 'block';
                 blocker.classList.remove('hidden');
+
+                // Prefill inputs if available
+                const loginClientId = document.getElementById('loginClientId');
+                const loginApiKey = document.getElementById('loginApiKey');
+                if (loginClientId) loginClientId.value = localStorage.getItem('g_client_id') || '';
+                if (loginApiKey) loginApiKey.value = localStorage.getItem('g_api_key') || '';
             }
         }
 
@@ -84,6 +90,28 @@ const app = {
         };
 
         // Login Blocker Buttons
+        const loginBtn = document.getElementById('loginConnectBtn');
+        if (loginBtn) {
+            loginBtn.onclick = () => {
+                const clientId = document.getElementById('loginClientId').value.trim();
+                const apiKey = document.getElementById('loginApiKey').value.trim();
+
+                if (!clientId || !apiKey) {
+                    this.showToast("Please enter Client ID and API Key", "error");
+                    return;
+                }
+
+                // Save credentials
+                localStorage.setItem('g_client_id', clientId);
+                localStorage.setItem('g_api_key', apiKey);
+
+                this.showToast("Saving keys...");
+                // Reload to re-init GAPI with new keys reliably
+                setTimeout(() => window.location.reload(), 500);
+            };
+        }
+
+        // Old Logic (Preserved but inactive due to ID change)
         const mainConnectBtn = document.getElementById('mainConnectBtn');
         if (mainConnectBtn) {
             mainConnectBtn.onclick = () => {
