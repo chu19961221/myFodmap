@@ -2,9 +2,12 @@
     --bg-color: #0f172a;
     --text-color: #f1f5f9;
     --text-muted: #94a3b8;
-    --primary-color: #6366f1; /* Indigo */
-    --success-color: #10b981; /* Emerald */
-    --danger-color: #ef4444; /* Red */
+    --primary-color: #6366f1;
+    /* Indigo */
+    --success-color: #10b981;
+    /* Emerald */
+    --danger-color: #ef4444;
+    /* Red */
     --card-bg: rgba(30, 41, 59, 0.7);
     --card-border: rgba(255, 255, 255, 0.1);
     --glass-blur: blur(12px);
@@ -25,11 +28,14 @@ body {
     font-family: var(--font-family);
     min-height: 100vh;
     padding: 20px;
-    padding-bottom: 80px; /* Space for FAB */
+    padding-bottom: 80px;
+    /* Space for FAB */
 }
 
 /* Typography */
-h1, h2, h3 {
+h1,
+h2,
+h3 {
     font-weight: 700;
     letter-spacing: -0.025em;
 }
@@ -64,7 +70,10 @@ h1 {
     border-radius: 50%;
     background-color: var(--text-muted);
 }
-.status-indicator.connected { background-color: var(--success-color); }
+
+.status-indicator.connected {
+    background-color: var(--success-color);
+}
 
 /* Components */
 .btn {
@@ -90,6 +99,7 @@ h1 {
     background-color: var(--primary-color);
     border-color: transparent;
 }
+
 .btn-primary:hover {
     background-color: #4f46e5;
 }
@@ -109,7 +119,16 @@ h1 {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
-    padding: 0 0.5rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    /* Clickable */
+    user-select: none;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.category-header:hover {
+    background-color: rgba(255, 255, 255, 0.05);
 }
 
 .category-title {
@@ -117,10 +136,38 @@ h1 {
     color: var(--text-color);
 }
 
+.category-toggle-icon {
+    transition: transform 0.3s ease;
+    color: var(--text-muted);
+}
+
+/* Collapsed State Logic */
+.category-section.collapsed .category-toggle-icon {
+    transform: rotate(-90deg);
+}
+
+.category-section.collapsed .food-list {
+    display: none;
+}
+
+
 .food-list {
     display: grid;
     gap: 1rem;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .food-card {
@@ -165,8 +212,10 @@ h1 {
 .star-rating {
     display: flex;
     gap: 2px;
-    color: #ffd700; /* Gold */
+    color: #ffd700;
+    /* Gold */
 }
+
 .star-rating.empty {
     color: #475569;
 }
@@ -180,11 +229,13 @@ h1 {
 }
 
 .btn-good {
-    background-color: rgba(16, 185, 129, 0.1); /* Low opacity green */
+    background-color: rgba(16, 185, 129, 0.1);
+    /* Low opacity green */
     color: #34d399;
     border-color: rgba(16, 185, 129, 0.2);
     justify-content: center;
 }
+
 .btn-good:hover {
     background-color: rgba(16, 185, 129, 0.2);
     transform: scale(1.02);
@@ -196,6 +247,7 @@ h1 {
     border-color: rgba(239, 68, 68, 0.2);
     justify-content: center;
 }
+
 .btn-bad:hover {
     background-color: rgba(239, 68, 68, 0.2);
     transform: scale(1.02);
@@ -221,6 +273,7 @@ h1 {
     border: none;
     font-size: 1.5rem;
 }
+
 .fab:hover {
     transform: scale(1.1) rotate(90deg);
 }
@@ -240,6 +293,7 @@ h1 {
     pointer-events: none;
     transition: var(--transition);
 }
+
 .modal-overlay.active {
     opacity: 1;
     pointer-events: auto;
@@ -256,6 +310,7 @@ h1 {
     transition: var(--transition);
     color: var(--text-color);
 }
+
 .modal-overlay.active .modal {
     transform: translateY(0);
 }
@@ -268,13 +323,16 @@ h1 {
 .form-group {
     margin-bottom: 1rem;
 }
+
 .form-label {
     display: block;
     margin-bottom: 0.5rem;
     font-size: 0.875rem;
     color: var(--text-muted);
 }
-.form-input, .form-select {
+
+.form-input,
+.form-select {
     width: 100%;
     background-color: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--card-border);
@@ -286,7 +344,9 @@ h1 {
     outline: none;
     transition: var(--transition);
 }
-.form-input:focus, .form-select:focus {
+
+.form-input:focus,
+.form-select:focus {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
 }
@@ -317,10 +377,12 @@ h1 {
     font-size: 0.875rem;
     white-space: nowrap;
 }
+
 .toast.active {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
 }
+
 .toast.error {
     background-color: rgba(239, 68, 68, 0.9);
 }
@@ -333,4 +395,7 @@ h1 {
     margin-bottom: 2rem;
     border: 1px dashed var(--card-border);
 }
-.settings-panel.hidden { display: none; }
+
+.settings-panel.hidden {
+    display: none;
+}

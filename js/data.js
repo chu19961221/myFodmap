@@ -55,7 +55,7 @@ export const DataStore = {
 
     addFood(name, categoryName) {
         if (!name.trim()) return { success: false, message: "Name cannot be empty" };
-        
+
         // Check global duplicate
         for (const cat of this.state.food_category) {
             if (cat.food.some(f => f.food_name === name)) {
@@ -85,7 +85,7 @@ export const DataStore = {
                 if (isGood) {
                     food.food_no_lactose_count += 1;
                 }
-                
+
                 // Recalculate stars
                 if (food.food_count > 0) {
                     const ratio = food.food_no_lactose_count / food.food_count;
@@ -93,12 +93,51 @@ export const DataStore = {
                 } else {
                     food.food_star = 0.0;
                 }
-                
+
                 found = true;
                 break;
             }
         }
         if (found) this.save();
+    },
+
+
+    updateFoodStats(foodName, count, safeCount) {
+        let found = false;
+        for (const cat of this.state.food_category) {
+            const food = cat.food.find(f => f.food_name === foodName);
+            if (food) {
+                food.food_count = parseInt(count);
+                food.food_no_lactose_count = parseInt(safeCount);
+
+                // Recalculate stars
+                if (food.food_count > 0) {
+                    const ratio = food.food_no_lactose_count / food.food_count;
+                    food.food_star = parseFloat((ratio * 5).toFixed(3));
+                } else {
+                    food.food_star = 0.0;
+                }
+
+                found = true;
+                break;
+            }
+        }
+        if (found) this.save();
+        return found;
+    },
+
+    deleteFood(foodName) {
+        let found = false;
+        for (const cat of this.state.food_category) {
+            const index = cat.food.findIndex(f => f.food_name === foodName);
+            if (index !== -1) {
+                cat.food.splice(index, 1);
+                found = true;
+                break;
+            }
+        }
+        if (found) this.save();
+        return found;
     },
 
     // Helper to get all categories for dropdown

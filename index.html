@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My FODMAP Tracker</title>
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/menu.css">
     <meta name="description" content="Track your food sensitivities easily.">
     <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
     <link rel="manifest" href="manifest.json">
@@ -56,6 +57,14 @@
             </div>
             <div style="display: flex; gap: 0.5rem; justify-content: flex-end;">
                 <button id="saveSettingsBtn" class="btn btn-primary">Save & Connect</button>
+            </div>
+            <hr style="border-color: var(--card-border); margin: 1.5rem 0;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Version: 2.0</span>
+                <button id="resetAppBtn" class="btn"
+                    style="color: var(--danger-color); border-color: var(--danger-color); font-size: 0.875rem;">
+                    Reset App & Clear Cache
+                </button>
             </div>
         </div>
 
@@ -124,6 +133,29 @@
             <div class="modal-actions">
                 <button class="btn" onclick="app.closeModals()">Cancel</button>
                 <button class="btn btn-primary" onclick="app.saveFood()">Add Food</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Edit Food Data -->
+    <div id="editFoodModal" class="modal-overlay">
+        <div class="modal">
+            <h3 class="modal-title">Edit Food Data</h3>
+            <div class="form-group">
+                <label class="form-label">Food Name</label>
+                <input type="text" id="editFoodName" class="form-input" disabled style="opacity: 0.7;">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Total Eaten Count</label>
+                <input type="number" id="editFoodCount" class="form-input" min="0">
+            </div>
+            <div class="form-group">
+                <label class="form-label">No Diarrhea Count (Good)</label>
+                <input type="number" id="editFoodSafeCount" class="form-input" min="0">
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="app.closeModals()">Cancel</button>
+                <button class="btn btn-primary" onclick="app.saveEditedFood()">Save Changes</button>
             </div>
         </div>
     </div>
