@@ -61,6 +61,16 @@ const app = {
                 const loginApiKey = document.getElementById('loginApiKey');
                 if (loginClientId) loginClientId.value = localStorage.getItem('g_client_id') || '';
                 if (loginApiKey) loginApiKey.value = localStorage.getItem('g_api_key') || '';
+
+                // Check for auto-login flag (set after user clicks Connect & Login)
+                const autoLogin = localStorage.getItem('g_auto_login');
+                if (autoLogin === 'true') {
+                    localStorage.removeItem('g_auto_login');
+                    // Trigger sign-in after a short delay to ensure GAPI is ready
+                    setTimeout(() => {
+                        DriveService.signIn();
+                    }, 500);
+                }
             }
         }
 
@@ -106,6 +116,8 @@ const app = {
                 localStorage.setItem('g_api_key', apiKey);
 
                 this.showToast("Saving keys...");
+                // Set flag to auto-login after reload
+                localStorage.setItem('g_auto_login', 'true');
                 // Reload to re-init GAPI with new keys reliably
                 setTimeout(() => window.location.reload(), 500);
             };
