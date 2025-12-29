@@ -168,19 +168,16 @@ const app = {
             }
         };
 
-        // Reset App
-        document.getElementById('resetAppBtn').onclick = async () => {
-            if (confirm('This will delete all local data and reset the app. Are you sure?')) {
-                // Unregister SW
-                if ('serviceWorker' in navigator) {
-                    const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (let registration of registrations) {
-                        await registration.unregister();
-                    }
-                }
-                // Clear Storage
-                localStorage.clear();
-                // Reload
+        // Logout
+        document.getElementById('logoutBtn').onclick = () => {
+            if (confirm('Logout and return to login page?')) {
+                // Remove login token and local data (will be loaded from Drive on next login)
+                localStorage.removeItem('g_access_token');
+                localStorage.removeItem('g_auto_login');
+                localStorage.removeItem('myFodmap');
+                // Keep g_client_id and g_api_key so they don't have to re-enter
+
+                // Reload to show login blocker
                 window.location.reload();
             }
         };

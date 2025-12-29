@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v12-renamefood';
+const CACHE_NAME = 'fodmap-app-v14-logoutclear';
 const ASSETS = [
     './',
     './index.html',
