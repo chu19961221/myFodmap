@@ -24,16 +24,21 @@
     background-color: #1e293b;
     border: 1px solid var(--card-border);
     border-radius: 0.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7);
     display: none;
     flex-direction: column;
-    z-index: 20;
-    min-width: 120px;
+    z-index: 100;
+    min-width: 140px;
     overflow: hidden;
 }
 
 .menu-dropdown.active {
     display: flex;
+}
+
+/* Elevate parent food card when menu is open */
+.food-card:has(.menu-dropdown.active) {
+    z-index: 50;
 }
 
 .menu-item {
