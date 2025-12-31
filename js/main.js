@@ -5,14 +5,17 @@ const app = {
     // UI State
     collapsedCategories: new Set(),
     isSyncing: false,  // Prevent concurrent syncs
+    tempFoods: [],     // Temp food list (array of {id, foodName, categoryName})
+    tempFoodIdCounter: 0,
+    currentPage: 'home', // 'home' or 'tempFood'
 
     init() {
         // Load Local Data first (Offline-First)
         DataStore.load();
-        this.render();
+        this.sortFoodsAndRender();
 
         // Listen for updates
-        window.addEventListener('data-updated', () => this.render());
+        window.addEventListener('data-updated', () => this.sortFoodsAndRender());
 
         // Drive Integration
         this.initDrive();
@@ -22,6 +25,31 @@ const app = {
 
         // Sync on page refresh/visibility change
         this.setupPageLifecycleSync();
+    },
+
+    // Sort foods by star rating and render
+    sortFoodsAndRender() {
+        const sortingChanged = this.sortFoodsByRating();
+        if (sortingChanged) {
+            // Save sorted data to trigger sync
+            DataStore.save();
+        }
+        this.render();
+    },
+
+    // Sort foods within each category by star rating (high to low)
+    // Returns true if order changed
+    sortFoodsByRating() {
+        let changed = false;
+        for (const cat of DataStore.state.food_category) {
+            const originalOrder = cat.food.map(f => f.food_name).join(',');
+            cat.food.sort((a, b) => b.food_star - a.food_star);
+            const newOrder = cat.food.map(f => f.food_name).join(',');
+            if (originalOrder !== newOrder) {
+                changed = true;
+            }
+        }
+        return changed;
     },
 
     setupPageLifecycleSync() {
@@ -35,8 +63,6 @@ const app = {
         // Sync before page unload (best effort)
         window.addEventListener('beforeunload', () => {
             if (DriveService.isConnected && navigator.onLine) {
-                // Use sendBeacon for reliable sync on page close
-                // Note: This is a best-effort attempt
                 this.syncToDrive();
             }
         });
@@ -51,7 +77,6 @@ const app = {
     },
 
     async initDrive() {
-        // Show loading state in blocker
         const blocker = document.getElementById('loginBlocker');
         const loading = document.getElementById('loginLoading');
         const actions = document.getElementById('loginActions');
@@ -61,35 +86,27 @@ const app = {
             actions.style.display = 'none';
         }
 
-        // Init usually restores token from local storage now
         const connected = await DriveService.init();
 
         if (DriveService.isConnected) {
             this.updateAuthStatus(true);
-            // Hide blocker immediately
             if (blocker) blocker.classList.add('hidden');
-
-            // Perform initial sync - load from cloud if available
             await this.performInitialSync();
         } else {
             this.updateAuthStatus(false);
-            // Show Prompt in Blocker
             if (loading && actions && blocker) {
                 loading.style.display = 'none';
                 actions.style.display = 'block';
                 blocker.classList.remove('hidden');
 
-                // Prefill inputs if available
                 const loginClientId = document.getElementById('loginClientId');
                 const loginApiKey = document.getElementById('loginApiKey');
                 if (loginClientId) loginClientId.value = localStorage.getItem('g_client_id') || '';
                 if (loginApiKey) loginApiKey.value = localStorage.getItem('g_api_key') || '';
 
-                // Check for auto-login flag (set after user clicks Connect & Login)
                 const autoLogin = localStorage.getItem('g_auto_login');
                 if (autoLogin === 'true') {
                     localStorage.removeItem('g_auto_login');
-                    // Trigger sign-in after a short delay to ensure GAPI is ready
                     setTimeout(() => {
                         DriveService.signIn();
                     }, 500);
@@ -97,7 +114,6 @@ const app = {
             }
         }
 
-        // Listen for disconnects - but don't force re-login
         window.addEventListener('drive-disconnected', () => {
             this.updateAuthStatus(false);
             this.showToast("Connection lost, working offline", "error");
@@ -110,10 +126,30 @@ const app = {
             document.getElementById('choiceModal').classList.add('active');
         };
 
-        // Settings (In App)
+        // Settings
         document.getElementById('settingsBtn').onclick = () => {
             document.getElementById('settingsPanel').classList.toggle('hidden');
             this.loadSettingsValues();
+        };
+
+        // Temp Food Page Button
+        document.getElementById('tempFoodBtn').onclick = () => {
+            this.showTempFoodPage();
+        };
+
+        // Temp Food Back Button
+        document.getElementById('tempFoodBackBtn').onclick = () => {
+            this.showHomePage();
+        };
+
+        // Add Temp Food Button
+        document.getElementById('addTempFoodBtn').onclick = () => {
+            this.openFoodPickerModal();
+        };
+
+        // Food Search Input
+        document.getElementById('foodSearchInput').oninput = (e) => {
+            this.renderFoodPicker(e.target.value);
         };
 
         // Login Blocker Buttons
@@ -128,44 +164,16 @@ const app = {
                     return;
                 }
 
-                // Save credentials
                 localStorage.setItem('g_client_id', clientId);
                 localStorage.setItem('g_api_key', apiKey);
 
                 this.showToast("Saving keys...");
-                // Set flag to auto-login after reload
                 localStorage.setItem('g_auto_login', 'true');
-                // Reload to re-init GAPI with new keys reliably
                 setTimeout(() => window.location.reload(), 500);
             };
         }
 
-        // Old Logic (Preserved but inactive due to ID change)
-        const mainConnectBtn = document.getElementById('mainConnectBtn');
-        if (mainConnectBtn) {
-            mainConnectBtn.onclick = () => {
-                const clientId = localStorage.getItem('g_client_id');
-                const apiKey = localStorage.getItem('g_api_key');
-
-                if (!clientId || !apiKey) {
-                    // Force open settings above blocker
-                    const panel = document.getElementById('settingsPanel');
-                    panel.classList.remove('hidden');
-                    panel.style.zIndex = '10000';
-                    panel.style.position = 'relative';
-                    this.loadSettingsValues();
-
-                    const blocker = document.getElementById('loginBlocker');
-                    if (blocker) blocker.style.display = 'none';
-
-                    this.showToast("Please configure API Keys first", "error");
-                    return;
-                }
-                DriveService.signIn();
-            };
-        }
-
-        // Update from Drive button - manual sync
+        // Update from Drive
         document.getElementById('updateBtn').onclick = async () => {
             if (!DriveService.isConnected) {
                 this.showToast("Not connected to Google Drive", "error");
@@ -180,30 +188,22 @@ const app = {
         // Logout
         document.getElementById('logoutBtn').onclick = () => {
             if (confirm('Logout and return to login page?')) {
-                // Remove login token and local data (will be loaded from Drive on next login)
                 localStorage.removeItem('g_access_token');
                 localStorage.removeItem('g_auto_login');
                 localStorage.removeItem('myFodmap');
-                // Keep g_client_id and g_api_key so they don't have to re-enter
-
-                // Reload to show login blocker
                 window.location.reload();
             }
         };
 
-        // Listen for drive connection (triggered after successful OAuth)
+        // Listen for drive connection
         window.addEventListener('drive-connected', async () => {
             this.updateAuthStatus(true);
-
-            // Hide login blocker
             const blocker = document.getElementById('loginBlocker');
             if (blocker) blocker.classList.add('hidden');
-
-            // Perform initial sync after login
             await this.performInitialSync();
         });
 
-        // Listen for sync needed (when local data changes)
+        // Listen for sync needed
         window.addEventListener('data-sync-needed', () => {
             this.performSync();
         });
@@ -213,7 +213,7 @@ const app = {
             this.updateAuthStatus(true, e.detail?.time);
         });
 
-        // Listen for detailed errors from DriveService
+        // Listen for toast events
         window.addEventListener('toast', (e) => {
             if (e.detail) {
                 this.showToast(e.detail.message, e.detail.type || 'success');
@@ -221,12 +221,160 @@ const app = {
         });
     },
 
+    // --- Page Navigation ---
+
+    showTempFoodPage() {
+        this.currentPage = 'tempFood';
+        document.getElementById('categoriesContainer').classList.add('hidden');
+        document.getElementById('settingsPanel').classList.add('hidden');
+        document.getElementById('tempFoodPage').classList.remove('hidden');
+        document.body.classList.add('temp-food-page-active');
+        this.renderTempFoods();
+    },
+
+    showHomePage() {
+        this.currentPage = 'home';
+        document.getElementById('tempFoodPage').classList.add('hidden');
+        document.getElementById('categoriesContainer').classList.remove('hidden');
+        document.body.classList.remove('temp-food-page-active');
+    },
+
+    // --- Temp Food Logic ---
+
+    openFoodPickerModal() {
+        document.getElementById('foodSearchInput').value = '';
+        this.renderFoodPicker('');
+        document.getElementById('selectFoodModal').classList.add('active');
+    },
+
+    renderFoodPicker(searchTerm = '') {
+        const container = document.getElementById('foodPickerList');
+        container.innerHTML = '';
+
+        const search = searchTerm.toLowerCase().trim();
+
+        for (const cat of DataStore.state.food_category) {
+            const filteredFoods = cat.food.filter(f =>
+                f.food_name.toLowerCase().includes(search)
+            );
+
+            if (filteredFoods.length === 0) continue;
+
+            // Category Header
+            const catHeader = document.createElement('div');
+            catHeader.className = 'food-picker-category';
+            catHeader.textContent = cat.category_name;
+            container.appendChild(catHeader);
+
+            // Food Items
+            for (const food of filteredFoods) {
+                const item = document.createElement('div');
+                item.className = 'food-picker-item';
+                item.onclick = () => this.addTempFood(food.food_name, cat.category_name);
+
+                const starHtml = this.getStarHtml(food.food_star);
+                item.innerHTML = `
+                    <div class="star-rating">${starHtml}</div>
+                    <span class="food-name">${this.escapeHtml(food.food_name)}</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                `;
+                container.appendChild(item);
+            }
+        }
+
+        if (container.children.length === 0) {
+            container.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 2rem;">No foods found</div>`;
+        }
+    },
+
+    addTempFood(foodName, categoryName) {
+        this.tempFoodIdCounter++;
+        this.tempFoods.push({
+            id: this.tempFoodIdCounter,
+            foodName: foodName,
+            categoryName: categoryName
+        });
+        this.closeModals();
+        this.showToast(`Added: ${foodName}`);
+        this.renderTempFoods();
+    },
+
+    removeTempFood(id) {
+        this.tempFoods = this.tempFoods.filter(f => f.id !== id);
+        this.renderTempFoods();
+    },
+
+    logTempFoodGood(id) {
+        const tempFood = this.tempFoods.find(f => f.id === id);
+        if (tempFood) {
+            DataStore.logFood(tempFood.foodName, true);
+            this.showToast(`Recorded: ${tempFood.foodName} (Good)`);
+            this.removeTempFood(id);
+        }
+    },
+
+    logTempFoodBad(id) {
+        const tempFood = this.tempFoods.find(f => f.id === id);
+        if (tempFood) {
+            DataStore.logFood(tempFood.foodName, false);
+            this.showToast(`Recorded: ${tempFood.foodName} (Bad)`, "error");
+            this.removeTempFood(id);
+        }
+    },
+
+    renderTempFoods() {
+        const list = document.getElementById('tempFoodList');
+        const empty = document.getElementById('tempFoodEmpty');
+
+        if (this.tempFoods.length === 0) {
+            list.innerHTML = '';
+            empty.style.display = 'block';
+            return;
+        }
+
+        empty.style.display = 'none';
+        list.innerHTML = '';
+
+        for (const tempFood of this.tempFoods) {
+            const item = document.createElement('div');
+            item.className = 'temp-food-item';
+
+            const safeName = this.escapeHtml(tempFood.foodName);
+            const safeCat = this.escapeHtml(tempFood.categoryName);
+
+            item.innerHTML = `
+                <div class="food-info">
+                    <div class="food-name">${safeName}</div>
+                    <div class="food-category">${safeCat}</div>
+                </div>
+                <div class="food-actions">
+                    <button class="btn btn-good" onclick="app.logTempFoodGood(${tempFood.id})">
+                        👍 Good
+                    </button>
+                    <button class="btn btn-bad" onclick="app.logTempFoodBad(${tempFood.id})">
+                        👎 Bad
+                    </button>
+                    <button class="btn btn-remove" onclick="app.removeTempFood(${tempFood.id})" title="Remove">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            `;
+            list.appendChild(item);
+        }
+    },
+
+    // --- Settings & Auth ---
 
     loadSettingsValues() {
         document.getElementById('clientIdInput').value = localStorage.getItem('g_client_id') || '';
         document.getElementById('apiKeyInput').value = localStorage.getItem('g_api_key') || '';
     },
-
 
     updateAuthStatus(isConnected, syncTime = null) {
         const text = document.getElementById('statusText');
@@ -249,7 +397,8 @@ const app = {
         }
     },
 
-    // Initial sync when user logs in - prioritize cloud data
+    // --- Sync Logic ---
+
     async performInitialSync() {
         if (!DriveService.isConnected || !navigator.onLine) {
             return;
@@ -264,19 +413,17 @@ const app = {
 
                 console.log("Initial sync - Local:", localTimestamp, "Cloud:", cloudTimestamp);
 
-                // If cloud has data and is newer (or local has no data), use cloud
                 if (!localTimestamp || (cloudTimestamp && new Date(cloudTimestamp) >= new Date(localTimestamp))) {
                     DataStore.importJSON(JSON.stringify(cloudResult.data), true);
                     DriveService.lastSyncTime = new Date().toISOString();
                     this.updateAuthStatus(true, DriveService.lastSyncTime);
+                    this.sortFoodsAndRender();
                     this.showToast("Data loaded from Cloud");
                 } else {
-                    // Local is newer, upload to cloud
                     await DriveService.saveFile(DataStore.exportJSON());
                     this.showToast("Local data synced to Cloud");
                 }
             } else {
-                // No cloud data, upload local if exists
                 if (DataStore.state.food_category.length > 0) {
                     await DriveService.saveFile(DataStore.exportJSON());
                     this.showToast("Local data uploaded to Cloud");
@@ -284,7 +431,6 @@ const app = {
             }
         } catch (err) {
             console.error("Initial sync failed:", err);
-            // Check if it's an auth error - prompt re-login
             if (err.message === 'AUTH_EXPIRED') {
                 this.handleTokenExpired();
             } else {
@@ -293,7 +439,6 @@ const app = {
         }
     },
 
-    // Bidirectional sync - compare timestamps and sync appropriately
     async performSync() {
         if (this.isSyncing) {
             console.log("Sync already in progress, skipping");
@@ -322,23 +467,20 @@ const app = {
                 console.log("Sync comparison - Local:", localTimestamp, "Cloud:", cloudTimestamp);
 
                 if (new Date(cloudTimestamp) > new Date(localTimestamp)) {
-                    // Cloud is newer, download
                     DataStore.importJSON(JSON.stringify(cloudResult.data), true);
                     DriveService.lastSyncTime = new Date().toISOString();
                     this.updateAuthStatus(true, DriveService.lastSyncTime);
+                    this.sortFoodsAndRender();
                     console.log("Downloaded newer data from cloud");
                 } else if (new Date(localTimestamp) > new Date(cloudTimestamp)) {
-                    // Local is newer, upload
                     await DriveService.saveFile(DataStore.exportJSON());
                     console.log("Uploaded newer local data to cloud");
                 } else {
-                    // Same timestamp, just update sync time display
                     DriveService.lastSyncTime = new Date().toISOString();
                     this.updateAuthStatus(true, DriveService.lastSyncTime);
                     console.log("Data already in sync");
                 }
             } else {
-                // No cloud data or no timestamp, upload local data
                 if (DataStore.state.food_category.length > 0 || localTimestamp) {
                     await DriveService.saveFile(DataStore.exportJSON());
                     console.log("Uploaded local data (no cloud data found)");
@@ -346,7 +488,6 @@ const app = {
             }
         } catch (err) {
             console.error("Sync failed:", err);
-            // Check if it's an auth error - prompt re-login
             if (err.message === 'AUTH_EXPIRED') {
                 this.handleTokenExpired();
             }
@@ -355,16 +496,13 @@ const app = {
         }
     },
 
-    // Handle token expiration - show login blocker
     handleTokenExpired() {
-        // Clear invalid token
         localStorage.removeItem('g_access_token');
         DriveService.isConnected = false;
 
         this.updateAuthStatus(false);
         this.showToast("Session expired. Please login again.", "error");
 
-        // Show login blocker
         const blocker = document.getElementById('loginBlocker');
         const loading = document.getElementById('loginLoading');
         const actions = document.getElementById('loginActions');
@@ -374,18 +512,11 @@ const app = {
             loading.style.display = 'none';
             actions.style.display = 'block';
 
-            // Prefill credentials
             const loginClientId = document.getElementById('loginClientId');
             const loginApiKey = document.getElementById('loginApiKey');
             if (loginClientId) loginClientId.value = localStorage.getItem('g_client_id') || '';
             if (loginApiKey) loginApiKey.value = localStorage.getItem('g_api_key') || '';
         }
-    },
-
-    // Legacy method for compatibility
-    async syncFromDrive() {
-        await this.performInitialSync();
-        return true;
     },
 
     syncToDrive() {
@@ -409,7 +540,6 @@ const app = {
     openAddFoodModal() {
         this.closeModals();
 
-        // Populate Categories
         const cats = DataStore.getCategories();
         const select = document.getElementById('newFoodCategory');
         select.innerHTML = cats.length ? '' : '<option disabled>No Categories</option>';
@@ -464,26 +594,21 @@ const app = {
         this.render();
     },
 
-    // Menu Logic
     toggleMenu(foodName, event) {
         event.stopPropagation();
         const existing = document.getElementById(`menu-${foodName}`);
 
-        // If this menu is already open, close it
         if (existing && existing.classList.contains('active')) {
             existing.classList.remove('active');
             return;
         }
 
-        // Close all other menus
         document.querySelectorAll('.menu-dropdown').forEach(el => el.classList.remove('active'));
 
-        // Open this one
         if (existing) {
             existing.classList.add('active');
         }
 
-        // Add click listener to body to close menu when clicking outside
         const closeMenu = (e) => {
             if (!e.target.closest(`#menu-${foodName}`) && !e.target.closest(`.more-btn`)) {
                 if (existing) existing.classList.remove('active');
@@ -493,7 +618,6 @@ const app = {
         setTimeout(() => document.body.addEventListener('click', closeMenu), 0);
     },
 
-    // Category Menu Logic
     toggleCategoryMenu(categoryName, event) {
         event.stopPropagation();
         const existing = document.getElementById(`cat-menu-${categoryName}`);
@@ -565,7 +689,6 @@ const app = {
 
     openEditFoodModal(foodName) {
         this.closeModals();
-        // Determine values
         let targetFood = null;
         for (const cat of DataStore.state.food_category) {
             const f = cat.food.find(item => item.food_name === foodName);
@@ -678,15 +801,14 @@ const app = {
     renderFoodCard(food) {
         const card = document.createElement('div');
         card.className = 'food-card';
-        // Ensure relative positioning
         card.style.position = 'relative';
 
         const safeName = this.escapeHtml(food.food_name);
-        // Star Calculation
         const rating = food.food_star;
         const starHtml = this.getStarHtml(rating);
         const percent = Math.round((food.food_no_lactose_count / (food.food_count || 1)) * 100);
 
+        // Removed good/bad buttons from food card - now only in temp food page
         card.innerHTML = `
             <button class="btn-icon more-btn" onclick="app.toggleMenu('${safeName}', event)">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
@@ -713,14 +835,6 @@ const app = {
                 <span>🍽️ ${food.food_count}</span>
                 <span>✨ ${percent}% Safe</span>
             </div>
-            <div class="food-actions">
-                <button class="btn btn-good" onclick="event.stopPropagation(); app.logGood('${safeName}')">
-                    <span>👍</span> GOOD
-                </button>
-                <button class="btn btn-bad" onclick="event.stopPropagation(); app.logBad('${safeName}')">
-                    <span>👎</span> BAD
-                </button>
-            </div>
         `;
         return card;
     },
@@ -729,27 +843,14 @@ const app = {
         let stars = '';
         for (let i = 1; i <= 5; i++) {
             if (rating >= i) {
-                // Full Star
                 stars += `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
             } else if (rating > i - 1) {
-                // Dim partial
                 stars += `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="opacity: 0.3"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
             } else {
-                // Empty Star
                 stars += `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="opacity: 0.1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>`;
             }
         }
         return stars;
-    },
-
-    logGood(name) {
-        DataStore.logFood(name, true);
-        this.showToast(`Recorded: ${name} (Good)`);
-    },
-
-    logBad(name) {
-        DataStore.logFood(name, false);
-        this.showToast(`Recorded: ${name} (Bad)`, "error");
     },
 
     escapeHtml(text) {

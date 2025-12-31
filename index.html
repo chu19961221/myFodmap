@@ -64,16 +64,27 @@
                 <span id="statusText">Not Connected to Drive</span>
             </div>
         </div>
-        <button id="settingsBtn" class="btn btn-icon" aria-label="Settings">
-            <!-- Gear Icon -->
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <path
-                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z">
-                </path>
-                <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-        </button>
+        <div style="display: flex; gap: 0.5rem;">
+            <button id="tempFoodBtn" class="btn btn-icon" aria-label="Temp Food List" title="Temp Food List">
+                <!-- Clipboard/List Icon -->
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+                    <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+                    <path d="M9 14l2 2 4-4"></path>
+                </svg>
+            </button>
+            <button id="settingsBtn" class="btn btn-icon" aria-label="Settings">
+                <!-- Gear Icon -->
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path
+                        d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z">
+                    </path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            </button>
+        </div>
     </header>
 
     <main id="appContent">
@@ -110,6 +121,36 @@
 
         <!-- Categories will be injected here -->
         <div id="categoriesContainer"></div>
+
+        <!-- Temp Food Page (Hidden by default) -->
+        <div id="tempFoodPage" class="temp-food-page hidden">
+            <div class="temp-food-header">
+                <button id="tempFoodBackBtn" class="btn btn-icon" aria-label="Back">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M19 12H5"></path>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                </button>
+                <h2>Temp Food List</h2>
+                <button id="addTempFoodBtn" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    Add
+                </button>
+            </div>
+            <p class="temp-food-desc">Add foods you ate, then mark them as Good or Bad to track your reactions.</p>
+            <div id="tempFoodList" class="temp-food-list">
+                <!-- Temp food items will be injected here -->
+            </div>
+            <div id="tempFoodEmpty" class="temp-food-empty">
+                <p>No temp foods added yet.</p>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Click "Add" to select foods you ate.</p>
+            </div>
+        </div>
     </main>
 
     <!-- Floating Action Button -->
@@ -196,6 +237,22 @@
             <div class="modal-actions">
                 <button class="btn" onclick="app.closeModals()">Cancel</button>
                 <button class="btn btn-primary" onclick="app.saveEditedFood()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Select Food for Temp List -->
+    <div id="selectFoodModal" class="modal-overlay">
+        <div class="modal" style="max-height: 80vh; display: flex; flex-direction: column;">
+            <h3 class="modal-title">Select Food to Add</h3>
+            <div class="form-group">
+                <input type="text" id="foodSearchInput" class="form-input" placeholder="🔍 Search foods...">
+            </div>
+            <div id="foodPickerList" class="food-picker-list" style="flex: 1; overflow-y: auto; max-height: 400px;">
+                <!-- Food items will be injected here -->
+            </div>
+            <div class="modal-actions">
+                <button class="btn" onclick="app.closeModals()">Cancel</button>
             </div>
         </div>
     </div>
