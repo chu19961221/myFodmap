@@ -4,12 +4,25 @@ export const DriveService = {
     tokenExpiry: 0,
     fileId: null,
     isConnected: false,
+    lastSyncTime: null,  // Track last successful sync time
 
     getCredentials() {
         return {
             clientId: localStorage.getItem('g_client_id'),
             apiKey: localStorage.getItem('g_api_key')
         };
+    },
+
+    // Get last sync time for display
+    getLastSyncTime() {
+        return this.lastSyncTime;
+    },
+
+    // Format sync time for display
+    getFormattedSyncTime() {
+        if (!this.lastSyncTime) return null;
+        const date = new Date(this.lastSyncTime);
+        return date.toLocaleString();
     },
 
     async init() {
@@ -35,24 +48,16 @@ export const DriveService = {
             try {
                 await gapi.client.init({
                     apiKey: apiKey,
-                    // Typically 'drive' not 'drive.file' for discovery, scopes handle access
                     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
                 });
 
-                // --- 1. Restore Token Logic ---
-                // Try to load token from localStorage
+                // Restore Token Logic
                 const storedToken = localStorage.getItem('g_access_token');
-                // Basic expiration check (if we stored timestamp). 
-                // Since we didn't store expiry before, we might just try to use it.
-                // If it fails, we handle error or let user sign in.
 
                 if (storedToken) {
                     gapi.client.setToken({ access_token: storedToken });
                     this.accessToken = storedToken;
                     this.isConnected = true;
-                    // Dispatch immediately if we think we are connected
-                    // But verify a call first? Or just assume and let sync fail if invalid?
-                    // Let's assume valid to make UI instant.
                     window.dispatchEvent(new CustomEvent('drive-connected'));
                 }
 
@@ -64,9 +69,7 @@ export const DriveService = {
                         if (tokenResponse && tokenResponse.access_token) {
                             this.accessToken = tokenResponse.access_token;
                             this.isConnected = true;
-                            // Store in LocalStorage
                             localStorage.setItem('g_access_token', this.accessToken);
-
                             window.dispatchEvent(new CustomEvent('drive-connected'));
                         }
                     },
@@ -89,18 +92,8 @@ export const DriveService = {
             }
         }
 
-        // If we are already connected (restored from local), maybe verify or skip?
-        // If we want to force refresh or 'Silent login', prompts: ''
-        // If user explicitly clicked "Connect/Sign In", we use 'consent' or empty.
-
-        // Strategy: If we have a token (isConnected=true), we might just validate it by making a call.
-        // But the user request said "Only login ONCE".
-        // So:
         if (this.isConnected) {
-            // Check validity by a simple call?
-            // Or just do nothing and let them be.
-            // If they are expired, the sync will fail. 
-            // Better: Try to refresh silently on load.
+            // Silent refresh attempt
             this.tokenClient.requestAccessToken({ prompt: '' });
         } else {
             this.tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -121,7 +114,7 @@ export const DriveService = {
             }
         } catch (err) {
             console.error("Find File Error", err);
-            // If 401 or 403, our token is bad.
+            // If auth error, mark as disconnected and throw for re-login
             if (err.status === 401 || err.status === 403) {
                 this.isConnected = false;
                 localStorage.removeItem('g_access_token');
@@ -143,17 +136,49 @@ export const DriveService = {
             return response.body || response.result;
         } catch (err) {
             console.error("Download Error", err);
-            // Check if it's an auth error (401 or 403)
+            // Check if it's an auth error - throw for re-login
             if (err.status === 401 || err.status === 403) {
+                this.isConnected = false;
+                localStorage.removeItem('g_access_token');
                 throw new Error('AUTH_EXPIRED');
             }
             return null;
         }
     },
 
-    // --- 2. Fix File Name Logic (Multipart Upload) ---
+    // Get cloud data with timestamp for comparison
+    async getCloudDataWithTimestamp() {
+        const cloudData = await this.downloadFile();
+        if (!cloudData) return null;
+
+        try {
+            let parsed;
+            if (typeof cloudData === 'string') {
+                parsed = JSON.parse(cloudData);
+            } else {
+                parsed = cloudData;
+            }
+            return {
+                data: parsed,
+                timestamp: parsed.lastModified || null
+            };
+        } catch (e) {
+            console.error("Failed to parse cloud data", e);
+            return null;
+        }
+    },
+
     async saveFile(contentString) {
-        if (!this.isConnected) return; // Silent fail if not connected
+        if (!this.isConnected) {
+            console.log("Not connected to Drive, skipping cloud save");
+            return false;
+        }
+
+        // Check if online
+        if (!navigator.onLine) {
+            console.log("Offline, skipping cloud save");
+            return false;
+        }
 
         if (!this.fileId) {
             await this.findFile();
@@ -180,9 +205,7 @@ export const DriveService = {
 
         try {
             if (this.fileId) {
-                // Update (PATCH) - Using upload URL is safer for content
-                // Standard REST: PATCH https://www.googleapis.com/upload/drive/v3/files/fileId?uploadType=multipart
-
+                // Update (PATCH)
                 await gapi.client.request({
                     path: '/upload/drive/v3/files/' + this.fileId,
                     method: 'PATCH',
@@ -192,7 +215,6 @@ export const DriveService = {
                     },
                     body: multipartRequestBody
                 });
-
             } else {
                 // Create (POST)
                 const response = await gapi.client.request({
@@ -209,14 +231,21 @@ export const DriveService = {
                     this.fileId = response.result.id;
                 }
             }
-            console.log("Saved to Drive");
+
+            // Update last sync time
+            this.lastSyncTime = new Date().toISOString();
+            window.dispatchEvent(new CustomEvent('sync-completed', { detail: { time: this.lastSyncTime } }));
+            console.log("Saved to Drive at:", this.lastSyncTime);
+            return true;
         } catch (err) {
             console.error("Save Error", err);
-            // Handle Expiry
-            if (err.status === 401) {
+            // Handle auth expiry - throw for re-login
+            if (err.status === 401 || err.status === 403) {
                 this.isConnected = false;
                 localStorage.removeItem('g_access_token');
+                throw new Error('AUTH_EXPIRED');
             }
+            return false;
         }
     }
 };

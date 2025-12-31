@@ -1,21 +1,40 @@
 export const DataStore = {
     state: {
-        food_category: []
+        food_category: [],
+        lastModified: null  // Timestamp for sync comparison
+    },
+
+    // Get current timestamp in ISO format
+    getTimestamp() {
+        return new Date().toISOString();
     },
 
     load() {
         const stored = localStorage.getItem('myFodmap');
         if (stored) {
             try {
-                this.state = JSON.parse(stored);
+                const parsed = JSON.parse(stored);
+                this.state = parsed;
+                // Ensure lastModified exists for legacy data
+                if (!this.state.lastModified) {
+                    this.state.lastModified = this.getTimestamp();
+                    this.saveToLocal();
+                }
             } catch (e) {
                 console.error("Failed to parse local data", e);
             }
         }
     },
 
-    save() {
+    // Save only to localStorage (without triggering sync)
+    saveToLocal() {
         localStorage.setItem('myFodmap', JSON.stringify(this.state));
+    },
+
+    // Save with timestamp update and trigger sync
+    save() {
+        this.state.lastModified = this.getTimestamp();
+        this.saveToLocal();
         window.dispatchEvent(new CustomEvent('data-updated'));
         window.dispatchEvent(new CustomEvent('data-sync-needed'));
     },
@@ -24,18 +43,33 @@ export const DataStore = {
         return JSON.stringify(this.state, null, 2);
     },
 
-    importJSON(jsonString) {
+    // Import JSON and optionally skip sync (for incoming cloud data)
+    importJSON(jsonString, skipSync = false) {
         try {
             const data = JSON.parse(jsonString);
             if (data && Array.isArray(data.food_category)) {
                 this.state = data;
-                this.save(); // Will trigger update and sync (but sync should handle "incoming" vs "outgoing" loop)
+                // Ensure lastModified exists
+                if (!this.state.lastModified) {
+                    this.state.lastModified = this.getTimestamp();
+                }
+                if (skipSync) {
+                    this.saveToLocal();
+                    window.dispatchEvent(new CustomEvent('data-updated'));
+                } else {
+                    this.save();
+                }
                 return true;
             }
         } catch (e) {
             console.error("Import failed", e);
         }
         return false;
+    },
+
+    // Get the lastModified timestamp
+    getLastModified() {
+        return this.state.lastModified || null;
     },
 
     // --- Actions ---

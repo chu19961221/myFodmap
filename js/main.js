@@ -4,9 +4,10 @@ import { DriveService } from './drive.js';
 const app = {
     // UI State
     collapsedCategories: new Set(),
+    isSyncing: false,  // Prevent concurrent syncs
 
     init() {
-        // Load Local Data
+        // Load Local Data first (Offline-First)
         DataStore.load();
         this.render();
 
@@ -18,6 +19,35 @@ const app = {
 
         // UI Listeners
         this.bindEvents();
+
+        // Sync on page refresh/visibility change
+        this.setupPageLifecycleSync();
+    },
+
+    setupPageLifecycleSync() {
+        // Sync when page becomes visible again
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && DriveService.isConnected) {
+                this.performSync();
+            }
+        });
+
+        // Sync before page unload (best effort)
+        window.addEventListener('beforeunload', () => {
+            if (DriveService.isConnected && navigator.onLine) {
+                // Use sendBeacon for reliable sync on page close
+                // Note: This is a best-effort attempt
+                this.syncToDrive();
+            }
+        });
+
+        // Listen for online status changes
+        window.addEventListener('online', () => {
+            if (DriveService.isConnected) {
+                this.showToast("Back online, syncing...");
+                this.performSync();
+            }
+        });
     },
 
     async initDrive() {
@@ -32,7 +62,6 @@ const app = {
         }
 
         // Init usually restores token from local storage now
-        // This might fail if gapi not loaded yet, DriveService.init waits for it.
         const connected = await DriveService.init();
 
         if (DriveService.isConnected) {
@@ -40,12 +69,8 @@ const app = {
             // Hide blocker immediately
             if (blocker) blocker.classList.add('hidden');
 
-            // Try to sync - if token is invalid, this will fail
-            const success = await this.syncFromDrive();
-            if (!success) {
-                // Token might be expired, show login blocker
-                this.handleTokenExpired();
-            }
+            // Perform initial sync - load from cloud if available
+            await this.performInitialSync();
         } else {
             this.updateAuthStatus(false);
             // Show Prompt in Blocker
@@ -72,16 +97,10 @@ const app = {
             }
         }
 
-        // Listen for disconnects
+        // Listen for disconnects - but don't force re-login
         window.addEventListener('drive-disconnected', () => {
             this.updateAuthStatus(false);
-            // Re-show blocker
-            if (blocker && loading && actions) {
-                blocker.classList.remove('hidden');
-                loading.style.display = 'none';
-                actions.style.display = 'block';
-            }
-            this.showToast("Session Expired", "error");
+            this.showToast("Connection lost, working offline", "error");
         });
     },
 
@@ -146,15 +165,15 @@ const app = {
             };
         }
 
-        // Update from Drive
+        // Update from Drive button - manual sync
         document.getElementById('updateBtn').onclick = async () => {
             if (!DriveService.isConnected) {
                 this.showToast("Not connected to Google Drive", "error");
                 return;
             }
 
-            this.showToast("Updating from Google Drive...");
-            await this.syncFromDrive();
+            this.showToast("Syncing with Google Drive...");
+            await this.performSync();
             document.getElementById('settingsPanel').classList.add('hidden');
         };
 
@@ -173,19 +192,25 @@ const app = {
         };
 
         // Listen for drive connection (triggered after successful OAuth)
-        window.addEventListener('drive-connected', () => {
+        window.addEventListener('drive-connected', async () => {
             this.updateAuthStatus(true);
 
             // Hide login blocker
             const blocker = document.getElementById('loginBlocker');
             if (blocker) blocker.classList.add('hidden');
 
-            this.syncFromDrive();
+            // Perform initial sync after login
+            await this.performInitialSync();
         });
 
-        // Listen for sync needed
+        // Listen for sync needed (when local data changes)
         window.addEventListener('data-sync-needed', () => {
-            this.syncToDrive();
+            this.performSync();
+        });
+
+        // Listen for sync completed
+        window.addEventListener('sync-completed', (e) => {
+            this.updateAuthStatus(true, e.detail?.time);
         });
 
         // Listen for detailed errors from DriveService
@@ -203,11 +228,20 @@ const app = {
     },
 
 
-    updateAuthStatus(isConnected) {
+    updateAuthStatus(isConnected, syncTime = null) {
         const text = document.getElementById('statusText');
         const indicator = document.getElementById('statusIndicator');
+
         if (isConnected) {
-            text.textContent = "Synced with Drive";
+            const formattedTime = syncTime
+                ? new Date(syncTime).toLocaleString()
+                : DriveService.getFormattedSyncTime();
+
+            if (formattedTime) {
+                text.textContent = `Synced with Drive (${formattedTime})`;
+            } else {
+                text.textContent = "Synced with Drive";
+            }
             indicator.classList.add('connected');
         } else {
             text.textContent = "Not Connected";
@@ -215,26 +249,113 @@ const app = {
         }
     },
 
-    async syncFromDrive() {
+    // Initial sync when user logs in - prioritize cloud data
+    async performInitialSync() {
+        if (!DriveService.isConnected || !navigator.onLine) {
+            return;
+        }
+
         try {
-            const cloudData = await DriveService.downloadFile();
-            if (cloudData) {
-                if (typeof cloudData === 'string') {
-                    DataStore.importJSON(cloudData);
+            const cloudResult = await DriveService.getCloudDataWithTimestamp();
+
+            if (cloudResult && cloudResult.data) {
+                const localTimestamp = DataStore.getLastModified();
+                const cloudTimestamp = cloudResult.timestamp;
+
+                console.log("Initial sync - Local:", localTimestamp, "Cloud:", cloudTimestamp);
+
+                // If cloud has data and is newer (or local has no data), use cloud
+                if (!localTimestamp || (cloudTimestamp && new Date(cloudTimestamp) >= new Date(localTimestamp))) {
+                    DataStore.importJSON(JSON.stringify(cloudResult.data), true);
+                    DriveService.lastSyncTime = new Date().toISOString();
+                    this.updateAuthStatus(true, DriveService.lastSyncTime);
+                    this.showToast("Data loaded from Cloud");
                 } else {
-                    DataStore.importJSON(JSON.stringify(cloudData));
+                    // Local is newer, upload to cloud
+                    await DriveService.saveFile(DataStore.exportJSON());
+                    this.showToast("Local data synced to Cloud");
                 }
-                this.showToast("Data Imported from Cloud");
-                return true;
+            } else {
+                // No cloud data, upload local if exists
+                if (DataStore.state.food_category.length > 0) {
+                    await DriveService.saveFile(DataStore.exportJSON());
+                    this.showToast("Local data uploaded to Cloud");
+                }
             }
-            // No data but no error - might be first time use (no file yet)
-            return true;
         } catch (err) {
-            console.error("Sync from Drive failed:", err);
-            return false;
+            console.error("Initial sync failed:", err);
+            // Check if it's an auth error - prompt re-login
+            if (err.message === 'AUTH_EXPIRED') {
+                this.handleTokenExpired();
+            } else {
+                this.showToast("Sync failed, working offline", "error");
+            }
         }
     },
 
+    // Bidirectional sync - compare timestamps and sync appropriately
+    async performSync() {
+        if (this.isSyncing) {
+            console.log("Sync already in progress, skipping");
+            return;
+        }
+
+        if (!DriveService.isConnected) {
+            console.log("Not connected, skipping sync");
+            return;
+        }
+
+        if (!navigator.onLine) {
+            console.log("Offline, skipping sync");
+            return;
+        }
+
+        this.isSyncing = true;
+
+        try {
+            const cloudResult = await DriveService.getCloudDataWithTimestamp();
+            const localTimestamp = DataStore.getLastModified();
+
+            if (cloudResult && cloudResult.timestamp) {
+                const cloudTimestamp = cloudResult.timestamp;
+
+                console.log("Sync comparison - Local:", localTimestamp, "Cloud:", cloudTimestamp);
+
+                if (new Date(cloudTimestamp) > new Date(localTimestamp)) {
+                    // Cloud is newer, download
+                    DataStore.importJSON(JSON.stringify(cloudResult.data), true);
+                    DriveService.lastSyncTime = new Date().toISOString();
+                    this.updateAuthStatus(true, DriveService.lastSyncTime);
+                    console.log("Downloaded newer data from cloud");
+                } else if (new Date(localTimestamp) > new Date(cloudTimestamp)) {
+                    // Local is newer, upload
+                    await DriveService.saveFile(DataStore.exportJSON());
+                    console.log("Uploaded newer local data to cloud");
+                } else {
+                    // Same timestamp, just update sync time display
+                    DriveService.lastSyncTime = new Date().toISOString();
+                    this.updateAuthStatus(true, DriveService.lastSyncTime);
+                    console.log("Data already in sync");
+                }
+            } else {
+                // No cloud data or no timestamp, upload local data
+                if (DataStore.state.food_category.length > 0 || localTimestamp) {
+                    await DriveService.saveFile(DataStore.exportJSON());
+                    console.log("Uploaded local data (no cloud data found)");
+                }
+            }
+        } catch (err) {
+            console.error("Sync failed:", err);
+            // Check if it's an auth error - prompt re-login
+            if (err.message === 'AUTH_EXPIRED') {
+                this.handleTokenExpired();
+            }
+        } finally {
+            this.isSyncing = false;
+        }
+    },
+
+    // Handle token expiration - show login blocker
     handleTokenExpired() {
         // Clear invalid token
         localStorage.removeItem('g_access_token');
@@ -253,7 +374,7 @@ const app = {
             loading.style.display = 'none';
             actions.style.display = 'block';
 
-            // Prefill
+            // Prefill credentials
             const loginClientId = document.getElementById('loginClientId');
             const loginApiKey = document.getElementById('loginApiKey');
             if (loginClientId) loginClientId.value = localStorage.getItem('g_client_id') || '';
@@ -261,10 +382,15 @@ const app = {
         }
     },
 
+    // Legacy method for compatibility
+    async syncFromDrive() {
+        await this.performInitialSync();
+        return true;
+    },
+
     syncToDrive() {
-        if (DriveService.isConnected) {
+        if (DriveService.isConnected && navigator.onLine) {
             DriveService.saveFile(DataStore.exportJSON());
-            // console.log("Syncing to drive...");
         }
     },
 
