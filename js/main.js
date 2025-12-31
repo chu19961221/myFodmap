@@ -5,8 +5,6 @@ const app = {
     // UI State
     collapsedCategories: new Set(),
     isSyncing: false,  // Prevent concurrent syncs
-    tempFoods: [],     // Temp food list (array of {id, foodName, categoryName})
-    tempFoodIdCounter: 0,
     currentPage: 'home', // 'home' or 'tempFood'
 
     init() {
@@ -291,45 +289,45 @@ const app = {
     },
 
     addTempFood(foodName, categoryName) {
-        this.tempFoodIdCounter++;
-        this.tempFoods.push({
-            id: this.tempFoodIdCounter,
-            foodName: foodName,
-            categoryName: categoryName
-        });
+        DataStore.addTempFood(foodName);
         this.closeModals();
         this.showToast(`Added: ${foodName}`);
         this.renderTempFoods();
     },
 
-    removeTempFood(id) {
-        this.tempFoods = this.tempFoods.filter(f => f.id !== id);
+    removeTempFood(index) {
+        DataStore.removeTempFood(index);
         this.renderTempFoods();
     },
 
-    logTempFoodGood(id) {
-        const tempFood = this.tempFoods.find(f => f.id === id);
-        if (tempFood) {
-            DataStore.logFood(tempFood.foodName, true);
-            this.showToast(`Recorded: ${tempFood.foodName} (Good)`);
-            this.removeTempFood(id);
+    logTempFoodGood(index) {
+        const tempFoods = DataStore.getTempFoods();
+        if (index >= 0 && index < tempFoods.length) {
+            const foodName = tempFoods[index].food_name;
+            DataStore.logFood(foodName, true);
+            this.showToast(`Recorded: ${foodName} (Good)`);
+            DataStore.removeTempFood(index);
+            this.renderTempFoods();
         }
     },
 
-    logTempFoodBad(id) {
-        const tempFood = this.tempFoods.find(f => f.id === id);
-        if (tempFood) {
-            DataStore.logFood(tempFood.foodName, false);
-            this.showToast(`Recorded: ${tempFood.foodName} (Bad)`, "error");
-            this.removeTempFood(id);
+    logTempFoodBad(index) {
+        const tempFoods = DataStore.getTempFoods();
+        if (index >= 0 && index < tempFoods.length) {
+            const foodName = tempFoods[index].food_name;
+            DataStore.logFood(foodName, false);
+            this.showToast(`Recorded: ${foodName} (Bad)`, "error");
+            DataStore.removeTempFood(index);
+            this.renderTempFoods();
         }
     },
 
     renderTempFoods() {
         const list = document.getElementById('tempFoodList');
         const empty = document.getElementById('tempFoodEmpty');
+        const tempFoods = DataStore.getTempFoods();
 
-        if (this.tempFoods.length === 0) {
+        if (tempFoods.length === 0) {
             list.innerHTML = '';
             empty.style.display = 'block';
             return;
@@ -338,12 +336,21 @@ const app = {
         empty.style.display = 'none';
         list.innerHTML = '';
 
-        for (const tempFood of this.tempFoods) {
+        tempFoods.forEach((tempFood, index) => {
             const item = document.createElement('div');
             item.className = 'temp-food-item';
 
-            const safeName = this.escapeHtml(tempFood.foodName);
-            const safeCat = this.escapeHtml(tempFood.categoryName);
+            const safeName = this.escapeHtml(tempFood.food_name);
+
+            // Find category for this food
+            let categoryName = '';
+            for (const cat of DataStore.state.food_category) {
+                if (cat.food.some(f => f.food_name === tempFood.food_name)) {
+                    categoryName = cat.category_name;
+                    break;
+                }
+            }
+            const safeCat = this.escapeHtml(categoryName);
 
             item.innerHTML = `
                 <div class="food-info">
@@ -351,13 +358,13 @@ const app = {
                     <div class="food-category">${safeCat}</div>
                 </div>
                 <div class="food-actions">
-                    <button class="btn btn-good" onclick="app.logTempFoodGood(${tempFood.id})">
+                    <button class="btn btn-good" onclick="app.logTempFoodGood(${index})">
                         👍 Good
                     </button>
-                    <button class="btn btn-bad" onclick="app.logTempFoodBad(${tempFood.id})">
+                    <button class="btn btn-bad" onclick="app.logTempFoodBad(${index})">
                         👎 Bad
                     </button>
-                    <button class="btn btn-remove" onclick="app.removeTempFood(${tempFood.id})" title="Remove">
+                    <button class="btn btn-remove" onclick="app.removeTempFood(${index})" title="Remove">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="18" y1="6" x2="6" y2="18"></line>
                             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -366,7 +373,7 @@ const app = {
                 </div>
             `;
             list.appendChild(item);
-        }
+        });
     },
 
     // --- Settings & Auth ---

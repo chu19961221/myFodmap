@@ -1,6 +1,7 @@
 export const DataStore = {
     state: {
         food_category: [],
+        tempFoodList: [],  // Temp food list for persistence
         lastModified: null  // Timestamp for sync comparison
     },
 
@@ -15,6 +16,13 @@ export const DataStore = {
             try {
                 const parsed = JSON.parse(stored);
                 this.state = parsed;
+                // Ensure arrays exist for legacy data
+                if (!Array.isArray(this.state.food_category)) {
+                    this.state.food_category = [];
+                }
+                if (!Array.isArray(this.state.tempFoodList)) {
+                    this.state.tempFoodList = [];
+                }
                 // Ensure lastModified exists for legacy data
                 if (!this.state.lastModified) {
                     this.state.lastModified = this.getTimestamp();
@@ -49,6 +57,10 @@ export const DataStore = {
             const data = JSON.parse(jsonString);
             if (data && Array.isArray(data.food_category)) {
                 this.state = data;
+                // Ensure arrays exist
+                if (!Array.isArray(this.state.tempFoodList)) {
+                    this.state.tempFoodList = [];
+                }
                 // Ensure lastModified exists
                 if (!this.state.lastModified) {
                     this.state.lastModified = this.getTimestamp();
@@ -226,5 +238,28 @@ export const DataStore = {
         this.state.food_category.splice(index, 1);
         this.save();
         return { success: true };
+    },
+
+    // --- Temp Food Management ---
+
+    addTempFood(foodName) {
+        this.state.tempFoodList.push({ food_name: foodName });
+        this.save();
+    },
+
+    removeTempFood(index) {
+        if (index >= 0 && index < this.state.tempFoodList.length) {
+            this.state.tempFoodList.splice(index, 1);
+            this.save();
+        }
+    },
+
+    getTempFoods() {
+        return this.state.tempFoodList || [];
+    },
+
+    clearTempFoods() {
+        this.state.tempFoodList = [];
+        this.save();
     }
 };

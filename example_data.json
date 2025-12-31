@@ -1,38 +1,88 @@
 {
     "food_category": [
         {
-            "category_name": "主食",
+            "category_name": "A",
             "food": [
                 {
-                    "food_name": "白飯",
-                    "food_count": 10,
-                    "food_no_lactose_count": 9,
-                    "food_star": 4.5
+                    "food_name": "a2",
+                    "food_count": 2,
+                    "food_no_lactose_count": 1,
+                    "food_star": 2.5
                 },
                 {
-                    "food_name": "麵包",
-                    "food_count": 5,
+                    "food_name": "a",
+                    "food_count": 4,
                     "food_no_lactose_count": 2,
-                    "food_star": 4.0
+                    "food_star": 2.5
+                },
+                {
+                    "food_name": "a1",
+                    "food_count": 1,
+                    "food_no_lactose_count": 0,
+                    "food_star": 0
                 }
             ]
         },
         {
-            "category_name": "蔬菜",
+            "category_name": "B",
             "food": [
                 {
-                    "food_name": "菠菜",
+                    "food_name": "b",
                     "food_count": 7,
-                    "food_no_lactose_count": 2,
-                    "food_star": 2.857
+                    "food_no_lactose_count": 6,
+                    "food_star": 4.286
                 },
                 {
-                    "food_name": "番茄",
+                    "food_name": "b2",
+                    "food_count": 2,
+                    "food_no_lactose_count": 1,
+                    "food_star": 2.5
+                },
+                {
+                    "food_name": "b1",
+                    "food_count": 1,
+                    "food_no_lactose_count": 0,
+                    "food_star": 0
+                }
+            ]
+        },
+        {
+            "category_name": "C",
+            "food": [
+                {
+                    "food_name": "c",
                     "food_count": 0,
                     "food_no_lactose_count": 0,
-                    "food_star": 0.0
+                    "food_star": 0
+                },
+                {
+                    "food_name": "c1",
+                    "food_count": 0,
+                    "food_no_lactose_count": 0,
+                    "food_star": 0
+                },
+                {
+                    "food_name": "c2",
+                    "food_count": 0,
+                    "food_no_lactose_count": 0,
+                    "food_star": 0
+                },
+                {
+                    "food_name": "白飯",
+                    "food_count": 0,
+                    "food_no_lactose_count": 0,
+                    "food_star": 0
                 }
             ]
         }
-    ]
+    ],
+    "tempFoodList": [
+        {
+            "food_name": "a"
+        },
+        {
+            "food_name": "b"
+        }
+    ],
+    "lastModified": "2025-12-31T09:39:35.204Z"
 }
