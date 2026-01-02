@@ -186,7 +186,7 @@ const app = {
         // Logout
         document.getElementById('logoutBtn').onclick = () => {
             if (confirm('Logout and return to login page?')) {
-                localStorage.removeItem('g_access_token');
+                DriveService._clearStoredToken();
                 localStorage.removeItem('g_auto_login');
                 localStorage.removeItem('myFodmap');
                 window.location.reload();
@@ -504,7 +504,8 @@ const app = {
     },
 
     handleTokenExpired() {
-        localStorage.removeItem('g_access_token');
+        // Use DriveService's method to clear all token data
+        DriveService._clearStoredToken();
         DriveService.isConnected = false;
 
         this.updateAuthStatus(false);

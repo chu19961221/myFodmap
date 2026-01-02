@@ -15,3 +15,9 @@
 - "新增食物列表"有搜尋功能。
 - 移除原本首頁中的食物可以按good / bad的按鈕，good / bad功能改由"暫存食物頁面"中的"暫存食物"按good / bad。
 - 首頁的食物類別中的食物由分數高低作排序，當排序變動時也觸發localStorage的更新事件與google drive的同步事件。
+
+2026/01/02 TODO
+- 建議使用 Google 的 accounts.id.initialize 和 TokenClient。
+- 將取得的 Token 資訊（包含過期時間）儲存在localStorage中，但不需要將Token資訊與存進雲端同步資料(JSON)。
+- 在每次嘗試雲端同步前先比對localStorage中的Token有效時間與現在時間，沒過期就直接調用目前的token。如果token時效過期，先嘗試用 prompt: 'none' 調用 TokenClient，如果使用者之前授權過且 Session 還在，Google 會在不跳出視窗的情況下直接回傳新 Token。
+- 在請求授權時，是否確認 Scope 包含 .../auth/drive.file ?
