@@ -106,7 +106,11 @@ const app = {
                 if (autoLogin === 'true') {
                     localStorage.removeItem('g_auto_login');
                     setTimeout(() => {
-                        DriveService.signIn();
+                        // Ensure we have credentials before auto-signing in
+                        const storedSecret = localStorage.getItem('g_client_secret');
+                        if (storedSecret) {
+                            DriveService.signIn();
+                        }
                     }, 500);
                 }
             }
@@ -156,14 +160,16 @@ const app = {
             loginBtn.onclick = () => {
                 const clientId = document.getElementById('loginClientId').value.trim();
                 const apiKey = document.getElementById('loginApiKey').value.trim();
+                const clientSecret = document.getElementById('loginClientSecret').value.trim();
 
-                if (!clientId || !apiKey) {
-                    this.showToast("Please enter Client ID and API Key", "error");
+                if (!clientId || !apiKey || !clientSecret) {
+                    this.showToast("Please enter Client ID, API Key, and Client Secret", "error");
                     return;
                 }
 
                 localStorage.setItem('g_client_id', clientId);
                 localStorage.setItem('g_api_key', apiKey);
+                localStorage.setItem('g_client_secret', clientSecret);
 
                 this.showToast("Saving keys...");
                 localStorage.setItem('g_auto_login', 'true');
@@ -381,6 +387,7 @@ const app = {
     loadSettingsValues() {
         document.getElementById('clientIdInput').value = localStorage.getItem('g_client_id') || '';
         document.getElementById('apiKeyInput').value = localStorage.getItem('g_api_key') || '';
+        document.getElementById('clientSecretInput').value = localStorage.getItem('g_client_secret') || '';
     },
 
     updateAuthStatus(isConnected, syncTime = null) {
@@ -522,8 +529,11 @@ const app = {
 
             const loginClientId = document.getElementById('loginClientId');
             const loginApiKey = document.getElementById('loginApiKey');
+            const loginClientSecret = document.getElementById('loginClientSecret');
+
             if (loginClientId) loginClientId.value = localStorage.getItem('g_client_id') || '';
             if (loginApiKey) loginApiKey.value = localStorage.getItem('g_api_key') || '';
+            if (loginClientSecret) loginClientSecret.value = localStorage.getItem('g_client_secret') || '';
         }
     },
 

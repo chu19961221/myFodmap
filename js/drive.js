@@ -1,164 +1,201 @@
 export const DriveService = {
-    tokenClient: null,
+    codeClient: null,
     accessToken: null,
-    tokenExpiry: 0,  // Token expiry timestamp in milliseconds
+    tokenExpiry: 0,
     fileId: null,
     isConnected: false,
-    lastSyncTime: null,  // Track last successful sync time
-    _silentRefreshPromise: null,  // Track ongoing silent refresh
+    lastSyncTime: null,
+    _refreshPromise: null, // Track ongoing refresh
 
-    // Token storage keys (NOT synced to cloud)
+    // Storage Keys
     TOKEN_KEY: 'g_access_token',
+    REFRESH_TOKEN_KEY: 'g_refresh_token',
     TOKEN_EXPIRY_KEY: 'g_token_expiry',
 
     getCredentials() {
         return {
             clientId: localStorage.getItem('g_client_id'),
+            clientSecret: localStorage.getItem('g_client_secret'),
             apiKey: localStorage.getItem('g_api_key')
         };
     },
 
-    // Get last sync time for display
     getLastSyncTime() {
         return this.lastSyncTime;
     },
 
-    // Format sync time for display
     getFormattedSyncTime() {
         if (!this.lastSyncTime) return null;
-        const date = new Date(this.lastSyncTime);
-        return date.toLocaleString();
+        return new Date(this.lastSyncTime).toLocaleString();
     },
 
-    // Store token with expiry time in localStorage
-    _storeToken(accessToken, expiresIn) {
-        // expiresIn is in seconds, convert to timestamp
-        const expiryTimestamp = Date.now() + (expiresIn * 1000);
+    _storeTokenData(data) {
+        const now = Date.now();
+        // data.expires_in is in seconds, subtract small buffer (5 min) for safety
+        const expiryTimestamp = now + ((data.expires_in - 300) * 1000);
 
-        localStorage.setItem(this.TOKEN_KEY, accessToken);
-        localStorage.setItem(this.TOKEN_EXPIRY_KEY, expiryTimestamp.toString());
+        if (data.access_token) {
+            this.accessToken = data.access_token;
+            this.tokenExpiry = expiryTimestamp;
+            localStorage.setItem(this.TOKEN_KEY, data.access_token);
+            localStorage.setItem(this.TOKEN_EXPIRY_KEY, expiryTimestamp.toString());
 
-        this.accessToken = accessToken;
-        this.tokenExpiry = expiryTimestamp;
-
-        console.log('Token stored, expires at:', new Date(expiryTimestamp).toLocaleString());
-    },
-
-    // Load token from localStorage
-    _loadStoredToken() {
-        const storedToken = localStorage.getItem(this.TOKEN_KEY);
-        const storedExpiry = localStorage.getItem(this.TOKEN_EXPIRY_KEY);
-
-        if (storedToken && storedExpiry) {
-            this.accessToken = storedToken;
-            this.tokenExpiry = parseInt(storedExpiry, 10);
-            return true;
+            // Set for GAPI IMMEDIATE USE
+            if (window.gapi && window.gapi.client) {
+                window.gapi.client.setToken({ access_token: data.access_token });
+            }
         }
+
+        if (data.refresh_token) {
+            localStorage.setItem(this.REFRESH_TOKEN_KEY, data.refresh_token);
+        }
+
+        this.isConnected = true;
+        window.dispatchEvent(new CustomEvent('drive-connected'));
+    },
+
+    _loadStoredToken() {
+        const token = localStorage.getItem(this.TOKEN_KEY);
+        const expiry = localStorage.getItem(this.TOKEN_EXPIRY_KEY);
+        const refresh = localStorage.getItem(this.REFRESH_TOKEN_KEY);
+
+        if (token && expiry) {
+            this.accessToken = token;
+            this.tokenExpiry = parseInt(expiry, 10);
+
+            if (this.isTokenValid()) {
+                this.isConnected = true;
+                if (window.gapi && window.gapi.client) {
+                    window.gapi.client.setToken({ access_token: token });
+                }
+                return true;
+            }
+        }
+
+        // Even if access token is invalid, if we have refresh token, we technically are "connected"
+        // but need to refresh before next call.
+        if (refresh) {
+            this.isConnected = true;
+            return false;
+        }
+
         return false;
     },
 
-    // Clear stored token
     _clearStoredToken() {
         localStorage.removeItem(this.TOKEN_KEY);
         localStorage.removeItem(this.TOKEN_EXPIRY_KEY);
+        localStorage.removeItem(this.REFRESH_TOKEN_KEY);
         this.accessToken = null;
         this.tokenExpiry = 0;
+        this.isConnected = false;
     },
 
-    // Check if token is valid (not expired)
-    // Returns true if token exists and has at least 1 minute before expiry
     isTokenValid() {
-        if (!this.accessToken || !this.tokenExpiry) {
-            return false;
-        }
-        // Add 60 second buffer to ensure token doesn't expire during request
-        const bufferMs = 60 * 1000;
-        return Date.now() < (this.tokenExpiry - bufferMs);
+        if (!this.accessToken || !this.tokenExpiry) return false;
+        return Date.now() < this.tokenExpiry;
     },
 
-    // Ensure valid token before making API calls
-    // This will silently refresh if needed
     async ensureValidToken() {
-        // If token is still valid, we're good
         if (this.isTokenValid()) {
-            console.log('Token is still valid');
             return true;
         }
 
-        console.log('Token expired or missing, attempting silent refresh...');
-
-        // Try silent refresh
-        const refreshed = await this._silentRefreshToken();
-
-        if (refreshed) {
-            console.log('Silent token refresh successful');
+        console.log('Token expired, attempting refresh...');
+        const success = await this._refreshAccessToken();
+        if (success) {
+            console.log('Token refreshed successfully');
             return true;
         }
 
-        console.log('Silent refresh failed, need user interaction');
+        console.log('Token refresh failed');
         return false;
     },
 
-    // Attempt silent token refresh using prompt: 'none'
-    _silentRefreshToken() {
-        // If already refreshing, return existing promise
-        if (this._silentRefreshPromise) {
-            return this._silentRefreshPromise;
+    async _refreshAccessToken() {
+        if (this._refreshPromise) return this._refreshPromise;
+
+        const refreshToken = localStorage.getItem(this.REFRESH_TOKEN_KEY);
+        const { clientId, clientSecret } = this.getCredentials();
+
+        if (!refreshToken || !clientId || !clientSecret) {
+            console.error("Missing refresh token or credentials");
+            return false;
         }
 
-        this._silentRefreshPromise = new Promise((resolve) => {
-            if (!this.tokenClient) {
-                console.log('TokenClient not initialized');
-                this._silentRefreshPromise = null;
-                resolve(false);
-                return;
-            }
-
-            // Set up one-time callback for this refresh attempt
-            const originalCallback = this.tokenClient.callback;
-
-            this.tokenClient.callback = (tokenResponse) => {
-                // Restore original callback
-                this.tokenClient.callback = originalCallback;
-                this._silentRefreshPromise = null;
-
-                if (tokenResponse && tokenResponse.access_token) {
-                    // Store new token with expiry
-                    const expiresIn = tokenResponse.expires_in || 3600; // Default 1 hour
-                    this._storeToken(tokenResponse.access_token, expiresIn);
-
-                    // Update gapi client
-                    gapi.client.setToken({ access_token: tokenResponse.access_token });
-
-                    this.isConnected = true;
-                    window.dispatchEvent(new CustomEvent('drive-connected'));
-                    resolve(true);
-                } else {
-                    console.log('Silent refresh returned no token');
-                    resolve(false);
-                }
-            };
-
-            // Error callback for when silent refresh fails
-            this.tokenClient.error_callback = (error) => {
-                console.log('Silent refresh error:', error);
-                this.tokenClient.callback = originalCallback;
-                this._silentRefreshPromise = null;
-                resolve(false);
-            };
-
+        this._refreshPromise = (async () => {
             try {
-                // Request token silently (no popup)
-                this.tokenClient.requestAccessToken({ prompt: 'none' });
-            } catch (err) {
-                console.error('Silent refresh request failed:', err);
-                this.tokenClient.callback = originalCallback;
-                this._silentRefreshPromise = null;
-                resolve(false);
-            }
-        });
+                const response = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        client_id: clientId,
+                        client_secret: clientSecret,
+                        refresh_token: refreshToken,
+                        grant_type: 'refresh_token'
+                    })
+                });
 
-        return this._silentRefreshPromise;
+                if (!response.ok) {
+                    const error = await response.json();
+                    console.error("Refresh failed:", error);
+                    if (error.error === 'invalid_grant') {
+                        // Refresh token revoked/expired
+                        this._clearStoredToken();
+                    }
+                    return false;
+                }
+
+                const data = await response.json();
+                this._storeTokenData(data);
+                return true;
+
+            } catch (err) {
+                console.error("Refresh request error:", err);
+                return false;
+            } finally {
+                this._refreshPromise = null;
+            }
+        })();
+
+        return this._refreshPromise;
+    },
+
+    async _exchangeCodeForToken(code) {
+        const { clientId, clientSecret } = this.getCredentials();
+
+        try {
+            const response = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    code: code,
+                    grant_type: 'authorization_code',
+                    redirect_uri: 'postmessage' // REQUIRED for GIS popup flow
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                console.error("Exchange Token Error:", err);
+                throw new Error("Failed to exchange code for token: " + (err.error_description || err.error));
+            }
+
+            const data = await response.json();
+            console.log("Token exchanged successfully. Has Refresh Token?", !!data.refresh_token);
+            this._storeTokenData(data);
+            return true;
+
+        } catch (err) {
+            console.error("Exchange Exception:", err);
+            return false;
+        }
     },
 
     async init() {
@@ -187,47 +224,35 @@ export const DriveService = {
                     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
                 });
 
-                // Restore Token from localStorage
-                const hasStoredToken = this._loadStoredToken();
-
-                if (hasStoredToken && this.isTokenValid()) {
-                    // Token is still valid, use it
-                    gapi.client.setToken({ access_token: this.accessToken });
-                    this.isConnected = true;
-                    console.log('Restored valid token from storage');
+                // Check storage
+                const hasValidToken = this._loadStoredToken();
+                if (hasValidToken) {
+                    console.log("Restored valid session");
                     window.dispatchEvent(new CustomEvent('drive-connected'));
-                } else if (hasStoredToken) {
-                    // Token exists but expired, try silent refresh after tokenClient is ready
-                    console.log('Stored token expired, will try silent refresh');
+                } else {
+                    // Try refreshing if possible
+                    const refreshToken = localStorage.getItem(this.REFRESH_TOKEN_KEY);
+                    if (refreshToken) {
+                        console.log("Found refresh token, attempting background refresh...");
+                        const success = await this._refreshAccessToken();
+                        if (!success) {
+                            console.log("Background refresh failed, login needed.");
+                        }
+                    }
                 }
 
-                // Initialize TokenClient with proper callback
-                this.tokenClient = google.accounts.oauth2.initTokenClient({
+                // Initialize GIS Code Client
+                this.codeClient = google.accounts.oauth2.initCodeClient({
                     client_id: clientId,
                     scope: 'https://www.googleapis.com/auth/drive.file',
-                    callback: (tokenResponse) => {
-                        if (tokenResponse && tokenResponse.access_token) {
-                            // Store token with expiry time
-                            const expiresIn = tokenResponse.expires_in || 3600;
-                            this._storeToken(tokenResponse.access_token, expiresIn);
-
-                            // Update gapi client
-                            gapi.client.setToken({ access_token: tokenResponse.access_token });
-
-                            this.isConnected = true;
-                            window.dispatchEvent(new CustomEvent('drive-connected'));
+                    ux_mode: 'popup',
+                    callback: async (response) => {
+                        if (response.code) {
+                            console.log("Auth Code received, exchanging...");
+                            await this._exchangeCodeForToken(response.code);
                         }
                     },
                 });
-
-                // If token was expired, try silent refresh now
-                if (hasStoredToken && !this.isTokenValid()) {
-                    const refreshed = await this._silentRefreshToken();
-                    if (!refreshed) {
-                        console.log('Silent refresh failed, user will need to login again');
-                        this._clearStoredToken();
-                    }
-                }
 
                 resolve(true);
             } catch (err) {
@@ -238,32 +263,13 @@ export const DriveService = {
     },
 
     async signIn() {
-        if (!this.tokenClient) {
-            const success = await this.init();
-            if (!success) {
-                window.dispatchEvent(new CustomEvent('toast', { detail: { message: "GAPI Missing", type: "error" } }));
-                return;
-            }
+        if (!this.codeClient) {
+            await this.init();
         }
 
-        if (this.isConnected && this.isTokenValid()) {
-            // Token still valid, no need to refresh
-            console.log('Already connected with valid token');
-            return;
-        }
-
-        if (this.isConnected || this.accessToken) {
-            // Try silent refresh first
-            const refreshed = await this._silentRefreshToken();
-            if (refreshed) {
-                console.log('Silent refresh successful');
-                return;
-            }
-        }
-
-        // Need user consent - first time login or session expired
-        console.log('Requesting user consent');
-        this.tokenClient.requestAccessToken({ prompt: 'consent' });
+        // Force offline access to get Refresh Token
+        // prompt: 'consent' is needed to ensure we get a refresh token
+        this.codeClient.requestCode();
     },
 
     async findFile() {

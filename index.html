@@ -48,6 +48,13 @@
                     <label class="form-label">API Key</label>
                     <input type="text" id="loginApiKey" class="form-input" placeholder="AIza...">
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Client Secret</label>
+                    <input type="password" id="loginClientSecret" class="form-input" placeholder="GOCSPX-...">
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">
+                        Required for "Keep me logged in" (Refresh Token). Stored locally on your device.
+                    </p>
+                </div>
                 <button id="loginConnectBtn" class="btn btn-primary"
                     style="width: 100%; justify-content: center; padding: 1rem; font-size: 1.1rem; margin-top: 1rem;">
                     Connect & Login
@@ -104,9 +111,13 @@
                 <label class="form-label">API Key</label>
                 <input type="text" id="apiKeyInput" class="form-input" placeholder="e.g. AIza...">
             </div>
+            <div class="form-group">
+                <label class="form-label">Client Secret</label>
+                <input type="password" id="clientSecretInput" class="form-input" placeholder="GOCSPX-...">
+            </div>
             <hr style="border-color: var(--card-border); margin: 1.5rem 0;">
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem;">
-                <span style="font-size: 0.8rem; color: var(--text-muted);">Version: 3.0.0</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Version: 3.1.0</span>
                 <div style="display: flex; gap: 0.5rem;">
                     <button id="updateBtn" class="btn" style="font-size: 0.875rem;">
                         🔄 Update

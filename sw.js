@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fodmap-app-v3-0-0-persistlogin';
+const CACHE_NAME = 'fodmap-app-v3-1-0-persistlogin';
 const ASSETS = [
     './',
     './index.html',
